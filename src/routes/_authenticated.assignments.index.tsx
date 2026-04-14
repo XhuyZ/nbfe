@@ -49,8 +49,8 @@ function AssignmentsIndexPage() {
   return (
     <section className="space-y-4">
       <div className="space-y-1">
-        <h1 className="text-2xl font-semibold">All Assignments</h1>
-        <p className="text-sm text-muted-foreground">Available assignments in the system.</p>
+        <h1 className="text-2xl font-semibold">My Assignments</h1>
+        <p className="text-sm text-muted-foreground">Assignments available for your learning journey.</p>
       </div>
 
       {assignments.length === 0 ? (

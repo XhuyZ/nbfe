@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { useMutation } from '@tanstack/react-query'
 import { AlertCircle, Loader2 } from 'lucide-react'
 import { toast } from 'react-toastify'
@@ -19,7 +19,6 @@ export const Route = createFileRoute('/login')({
 })
 
 function LoginPage() {
-  const navigate = useNavigate()
   const { login } = useAuth()
   const { redirect } = Route.useSearch()
   const [username, setUsername] = useState('')
@@ -35,7 +34,7 @@ function LoginPage() {
         return
       }
 
-      navigate({ to: `/${result.user.role}` as '/student' | '/teacher' | '/admin' })
+      window.location.assign(`/${result.user.role}`)
     },
     onError: (mutationError) => {
       const message = mutationError instanceof Error ? mutationError.message : 'Login failed'

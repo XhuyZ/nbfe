@@ -33,6 +33,9 @@ export const Route = createFileRoute('/_authenticated/teacher')({
     if (role && role !== 'teacher') {
       throw redirect({ to: `/${role}` as '/student' | '/admin' })
     }
+    if (role === 'teacher') {
+      throw redirect({ to: '/teacher-courses' })
+    }
   },
   component: TeacherPage,
 })
@@ -51,6 +54,7 @@ function TeacherPage() {
   const [manageDocumentFile, setManageDocumentFile] = useState<File | null>(null)
 
   const [createTitle, setCreateTitle] = useState('')
+  const [createChapterId, setCreateChapterId] = useState('')
   const [createDescription, setCreateDescription] = useState('')
   const [createDeadline, setCreateDeadline] = useState('')
   const [createStatus, setCreateStatus] = useState<'open' | 'closed'>('open')
@@ -102,6 +106,7 @@ function TeacherPage() {
   const createMutation = useMutation({
     mutationFn: async () =>
       createAssignment(accessToken!, {
+        chapterId: createChapterId,
         title: createTitle,
         description: createDescription,
         deadline: new Date(createDeadline).toISOString(),
@@ -122,6 +127,7 @@ function TeacherPage() {
       toast.success(result.message)
       setOpenCreateDialog(false)
       setCreateTitle('')
+      setCreateChapterId('')
       setCreateDescription('')
       setCreateDeadline('')
       setCreateStatus('open')
@@ -249,6 +255,16 @@ function TeacherPage() {
               <div className="space-y-2">
                 <Label htmlFor="create-title">Title</Label>
                 <Input id="create-title" value={createTitle} onChange={(event) => setCreateTitle(event.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="create-chapter-id">Chapter ID</Label>
+                <Input
+                  id="create-chapter-id"
+                  value={createChapterId}
+                  onChange={(event) => setCreateChapterId(event.target.value)}
+                  placeholder="Chapter UUID"
+                  required
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="create-description">Description</Label>

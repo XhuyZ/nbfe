@@ -58,6 +58,7 @@ interface ApiEnvelope<T> {
 }
 
 export interface CreateAssignmentPayload {
+  chapterId: string
   title: string
   description: string
   deadline: string
@@ -116,6 +117,7 @@ async function requestJson<T>(url: string, init: RequestInit, fallback: string):
 
 export async function createAssignment(accessToken: string, payload: CreateAssignmentPayload) {
   const formData = new FormData()
+  formData.append('chapterId', payload.chapterId)
   formData.append('title', payload.title)
   formData.append('description', payload.description)
   formData.append('deadline', payload.deadline)

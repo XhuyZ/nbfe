@@ -12,12 +12,17 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedTeacherCoursesRouteImport } from './routes/_authenticated.teacher-courses'
 import { Route as AuthenticatedTeacherRouteImport } from './routes/_authenticated.teacher'
 import { Route as AuthenticatedSubmissionsRouteImport } from './routes/_authenticated.submissions'
+import { Route as AuthenticatedStudentCoursesRouteImport } from './routes/_authenticated.student-courses'
 import { Route as AuthenticatedStudentRouteImport } from './routes/_authenticated.student'
 import { Route as AuthenticatedAssignmentsRouteImport } from './routes/_authenticated.assignments'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated.admin'
+import { Route as AuthenticatedStudentCoursesIndexRouteImport } from './routes/_authenticated.student-courses.index'
 import { Route as AuthenticatedAssignmentsIndexRouteImport } from './routes/_authenticated.assignments.index'
+import { Route as AuthenticatedStudentCoursesAllRouteImport } from './routes/_authenticated.student-courses.all'
+import { Route as AuthenticatedStudentCoursesCourseIdRouteImport } from './routes/_authenticated.student-courses.$courseId'
 import { Route as AuthenticatedAssignmentsAssignmentIdRouteImport } from './routes/_authenticated.assignments.$assignmentId'
 
 const LoginRoute = LoginRouteImport.update({
@@ -34,6 +39,12 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedTeacherCoursesRoute =
+  AuthenticatedTeacherCoursesRouteImport.update({
+    id: '/teacher-courses',
+    path: '/teacher-courses',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedTeacherRoute = AuthenticatedTeacherRouteImport.update({
   id: '/teacher',
   path: '/teacher',
@@ -43,6 +54,12 @@ const AuthenticatedSubmissionsRoute =
   AuthenticatedSubmissionsRouteImport.update({
     id: '/submissions',
     path: '/submissions',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedStudentCoursesRoute =
+  AuthenticatedStudentCoursesRouteImport.update({
+    id: '/student-courses',
+    path: '/student-courses',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedStudentRoute = AuthenticatedStudentRouteImport.update({
@@ -61,11 +78,29 @@ const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedStudentCoursesIndexRoute =
+  AuthenticatedStudentCoursesIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedStudentCoursesRoute,
+  } as any)
 const AuthenticatedAssignmentsIndexRoute =
   AuthenticatedAssignmentsIndexRouteImport.update({
     id: '/',
     path: '/',
     getParentRoute: () => AuthenticatedAssignmentsRoute,
+  } as any)
+const AuthenticatedStudentCoursesAllRoute =
+  AuthenticatedStudentCoursesAllRouteImport.update({
+    id: '/all',
+    path: '/all',
+    getParentRoute: () => AuthenticatedStudentCoursesRoute,
+  } as any)
+const AuthenticatedStudentCoursesCourseIdRoute =
+  AuthenticatedStudentCoursesCourseIdRouteImport.update({
+    id: '/$courseId',
+    path: '/$courseId',
+    getParentRoute: () => AuthenticatedStudentCoursesRoute,
   } as any)
 const AuthenticatedAssignmentsAssignmentIdRoute =
   AuthenticatedAssignmentsAssignmentIdRouteImport.update({
@@ -80,10 +115,15 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AuthenticatedAdminRoute
   '/assignments': typeof AuthenticatedAssignmentsRouteWithChildren
   '/student': typeof AuthenticatedStudentRoute
+  '/student-courses': typeof AuthenticatedStudentCoursesRouteWithChildren
   '/submissions': typeof AuthenticatedSubmissionsRoute
   '/teacher': typeof AuthenticatedTeacherRoute
+  '/teacher-courses': typeof AuthenticatedTeacherCoursesRoute
   '/assignments/$assignmentId': typeof AuthenticatedAssignmentsAssignmentIdRoute
+  '/student-courses/$courseId': typeof AuthenticatedStudentCoursesCourseIdRoute
+  '/student-courses/all': typeof AuthenticatedStudentCoursesAllRoute
   '/assignments/': typeof AuthenticatedAssignmentsIndexRoute
+  '/student-courses/': typeof AuthenticatedStudentCoursesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -92,8 +132,12 @@ export interface FileRoutesByTo {
   '/student': typeof AuthenticatedStudentRoute
   '/submissions': typeof AuthenticatedSubmissionsRoute
   '/teacher': typeof AuthenticatedTeacherRoute
+  '/teacher-courses': typeof AuthenticatedTeacherCoursesRoute
   '/assignments/$assignmentId': typeof AuthenticatedAssignmentsAssignmentIdRoute
+  '/student-courses/$courseId': typeof AuthenticatedStudentCoursesCourseIdRoute
+  '/student-courses/all': typeof AuthenticatedStudentCoursesAllRoute
   '/assignments': typeof AuthenticatedAssignmentsIndexRoute
+  '/student-courses': typeof AuthenticatedStudentCoursesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -103,10 +147,15 @@ export interface FileRoutesById {
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/assignments': typeof AuthenticatedAssignmentsRouteWithChildren
   '/_authenticated/student': typeof AuthenticatedStudentRoute
+  '/_authenticated/student-courses': typeof AuthenticatedStudentCoursesRouteWithChildren
   '/_authenticated/submissions': typeof AuthenticatedSubmissionsRoute
   '/_authenticated/teacher': typeof AuthenticatedTeacherRoute
+  '/_authenticated/teacher-courses': typeof AuthenticatedTeacherCoursesRoute
   '/_authenticated/assignments/$assignmentId': typeof AuthenticatedAssignmentsAssignmentIdRoute
+  '/_authenticated/student-courses/$courseId': typeof AuthenticatedStudentCoursesCourseIdRoute
+  '/_authenticated/student-courses/all': typeof AuthenticatedStudentCoursesAllRoute
   '/_authenticated/assignments/': typeof AuthenticatedAssignmentsIndexRoute
+  '/_authenticated/student-courses/': typeof AuthenticatedStudentCoursesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -116,10 +165,15 @@ export interface FileRouteTypes {
     | '/admin'
     | '/assignments'
     | '/student'
+    | '/student-courses'
     | '/submissions'
     | '/teacher'
+    | '/teacher-courses'
     | '/assignments/$assignmentId'
+    | '/student-courses/$courseId'
+    | '/student-courses/all'
     | '/assignments/'
+    | '/student-courses/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -128,8 +182,12 @@ export interface FileRouteTypes {
     | '/student'
     | '/submissions'
     | '/teacher'
+    | '/teacher-courses'
     | '/assignments/$assignmentId'
+    | '/student-courses/$courseId'
+    | '/student-courses/all'
     | '/assignments'
+    | '/student-courses'
   id:
     | '__root__'
     | '/'
@@ -138,10 +196,15 @@ export interface FileRouteTypes {
     | '/_authenticated/admin'
     | '/_authenticated/assignments'
     | '/_authenticated/student'
+    | '/_authenticated/student-courses'
     | '/_authenticated/submissions'
     | '/_authenticated/teacher'
+    | '/_authenticated/teacher-courses'
     | '/_authenticated/assignments/$assignmentId'
+    | '/_authenticated/student-courses/$courseId'
+    | '/_authenticated/student-courses/all'
     | '/_authenticated/assignments/'
+    | '/_authenticated/student-courses/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -173,6 +236,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/teacher-courses': {
+      id: '/_authenticated/teacher-courses'
+      path: '/teacher-courses'
+      fullPath: '/teacher-courses'
+      preLoaderRoute: typeof AuthenticatedTeacherCoursesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/teacher': {
       id: '/_authenticated/teacher'
       path: '/teacher'
@@ -185,6 +255,13 @@ declare module '@tanstack/react-router' {
       path: '/submissions'
       fullPath: '/submissions'
       preLoaderRoute: typeof AuthenticatedSubmissionsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/student-courses': {
+      id: '/_authenticated/student-courses'
+      path: '/student-courses'
+      fullPath: '/student-courses'
+      preLoaderRoute: typeof AuthenticatedStudentCoursesRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/student': {
@@ -208,12 +285,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/student-courses/': {
+      id: '/_authenticated/student-courses/'
+      path: '/'
+      fullPath: '/student-courses/'
+      preLoaderRoute: typeof AuthenticatedStudentCoursesIndexRouteImport
+      parentRoute: typeof AuthenticatedStudentCoursesRoute
+    }
     '/_authenticated/assignments/': {
       id: '/_authenticated/assignments/'
       path: '/'
       fullPath: '/assignments/'
       preLoaderRoute: typeof AuthenticatedAssignmentsIndexRouteImport
       parentRoute: typeof AuthenticatedAssignmentsRoute
+    }
+    '/_authenticated/student-courses/all': {
+      id: '/_authenticated/student-courses/all'
+      path: '/all'
+      fullPath: '/student-courses/all'
+      preLoaderRoute: typeof AuthenticatedStudentCoursesAllRouteImport
+      parentRoute: typeof AuthenticatedStudentCoursesRoute
+    }
+    '/_authenticated/student-courses/$courseId': {
+      id: '/_authenticated/student-courses/$courseId'
+      path: '/$courseId'
+      fullPath: '/student-courses/$courseId'
+      preLoaderRoute: typeof AuthenticatedStudentCoursesCourseIdRouteImport
+      parentRoute: typeof AuthenticatedStudentCoursesRoute
     }
     '/_authenticated/assignments/$assignmentId': {
       id: '/_authenticated/assignments/$assignmentId'
@@ -242,20 +340,45 @@ const AuthenticatedAssignmentsRouteWithChildren =
     AuthenticatedAssignmentsRouteChildren,
   )
 
+interface AuthenticatedStudentCoursesRouteChildren {
+  AuthenticatedStudentCoursesCourseIdRoute: typeof AuthenticatedStudentCoursesCourseIdRoute
+  AuthenticatedStudentCoursesAllRoute: typeof AuthenticatedStudentCoursesAllRoute
+  AuthenticatedStudentCoursesIndexRoute: typeof AuthenticatedStudentCoursesIndexRoute
+}
+
+const AuthenticatedStudentCoursesRouteChildren: AuthenticatedStudentCoursesRouteChildren =
+  {
+    AuthenticatedStudentCoursesCourseIdRoute:
+      AuthenticatedStudentCoursesCourseIdRoute,
+    AuthenticatedStudentCoursesAllRoute: AuthenticatedStudentCoursesAllRoute,
+    AuthenticatedStudentCoursesIndexRoute:
+      AuthenticatedStudentCoursesIndexRoute,
+  }
+
+const AuthenticatedStudentCoursesRouteWithChildren =
+  AuthenticatedStudentCoursesRoute._addFileChildren(
+    AuthenticatedStudentCoursesRouteChildren,
+  )
+
 interface AuthenticatedRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedAssignmentsRoute: typeof AuthenticatedAssignmentsRouteWithChildren
   AuthenticatedStudentRoute: typeof AuthenticatedStudentRoute
+  AuthenticatedStudentCoursesRoute: typeof AuthenticatedStudentCoursesRouteWithChildren
   AuthenticatedSubmissionsRoute: typeof AuthenticatedSubmissionsRoute
   AuthenticatedTeacherRoute: typeof AuthenticatedTeacherRoute
+  AuthenticatedTeacherCoursesRoute: typeof AuthenticatedTeacherCoursesRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedAssignmentsRoute: AuthenticatedAssignmentsRouteWithChildren,
   AuthenticatedStudentRoute: AuthenticatedStudentRoute,
+  AuthenticatedStudentCoursesRoute:
+    AuthenticatedStudentCoursesRouteWithChildren,
   AuthenticatedSubmissionsRoute: AuthenticatedSubmissionsRoute,
   AuthenticatedTeacherRoute: AuthenticatedTeacherRoute,
+  AuthenticatedTeacherCoursesRoute: AuthenticatedTeacherCoursesRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
