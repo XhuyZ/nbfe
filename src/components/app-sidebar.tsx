@@ -1,5 +1,5 @@
 import { Link, useNavigate } from '@tanstack/react-router'
-import { BookOpenCheck, FileCode2, FileText, GraduationCap, LogOut, Shield, User, Users } from 'lucide-react'
+import { BarChart3, BookOpenCheck, FileCode2, FileSearch, FileText, GraduationCap, LogOut, Shield, User, Users } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 import { Badge } from '@/components/ui/badge'
@@ -20,6 +20,7 @@ const menuByRole: Record<
       | '/teacher-courses'
       | '/student-courses'
       | '/student-courses/all'
+      | '/review-verdict'
     label: string
     icon: ReactNode
   }>
@@ -32,9 +33,14 @@ const menuByRole: Record<
     { to: '/submissions', label: 'Submissions', icon: <FileCode2 className="h-4 w-4" /> },
   ],
   teacher: [
+    { to: '/teacher', label: 'Analytics', icon: <BarChart3 className="h-4 w-4" /> },
     { to: '/teacher-courses', label: 'Course Management', icon: <BookOpenCheck className="h-4 w-4" /> },
+    { to: '/review-verdict', label: 'Review & Verdict', icon: <FileSearch className="h-4 w-4" /> },
   ],
-  admin: [{ to: '/admin', label: 'Admin Dashboard', icon: <Shield className="h-4 w-4" /> }],
+  admin: [
+    { to: '/admin', label: 'Admin Dashboard', icon: <Shield className="h-4 w-4" /> },
+    { to: '/review-verdict', label: 'Review & Verdict', icon: <FileSearch className="h-4 w-4" /> },
+  ],
 }
 
 export function AppSidebar() {

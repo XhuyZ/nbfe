@@ -17,6 +17,7 @@ import { Route as AuthenticatedTeacherRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedSubmissionsRouteImport } from './routes/_authenticated.submissions'
 import { Route as AuthenticatedStudentCoursesRouteImport } from './routes/_authenticated.student-courses'
 import { Route as AuthenticatedStudentRouteImport } from './routes/_authenticated.student'
+import { Route as AuthenticatedReviewVerdictRouteImport } from './routes/_authenticated.review-verdict'
 import { Route as AuthenticatedAssignmentsRouteImport } from './routes/_authenticated.assignments'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated.admin'
 import { Route as AuthenticatedStudentCoursesIndexRouteImport } from './routes/_authenticated.student-courses.index'
@@ -67,6 +68,12 @@ const AuthenticatedStudentRoute = AuthenticatedStudentRouteImport.update({
   path: '/student',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedReviewVerdictRoute =
+  AuthenticatedReviewVerdictRouteImport.update({
+    id: '/review-verdict',
+    path: '/review-verdict',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAssignmentsRoute =
   AuthenticatedAssignmentsRouteImport.update({
     id: '/assignments',
@@ -114,6 +121,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/assignments': typeof AuthenticatedAssignmentsRouteWithChildren
+  '/review-verdict': typeof AuthenticatedReviewVerdictRoute
   '/student': typeof AuthenticatedStudentRoute
   '/student-courses': typeof AuthenticatedStudentCoursesRouteWithChildren
   '/submissions': typeof AuthenticatedSubmissionsRoute
@@ -129,6 +137,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/admin': typeof AuthenticatedAdminRoute
+  '/review-verdict': typeof AuthenticatedReviewVerdictRoute
   '/student': typeof AuthenticatedStudentRoute
   '/submissions': typeof AuthenticatedSubmissionsRoute
   '/teacher': typeof AuthenticatedTeacherRoute
@@ -146,6 +155,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/assignments': typeof AuthenticatedAssignmentsRouteWithChildren
+  '/_authenticated/review-verdict': typeof AuthenticatedReviewVerdictRoute
   '/_authenticated/student': typeof AuthenticatedStudentRoute
   '/_authenticated/student-courses': typeof AuthenticatedStudentCoursesRouteWithChildren
   '/_authenticated/submissions': typeof AuthenticatedSubmissionsRoute
@@ -164,6 +174,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/admin'
     | '/assignments'
+    | '/review-verdict'
     | '/student'
     | '/student-courses'
     | '/submissions'
@@ -179,6 +190,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/admin'
+    | '/review-verdict'
     | '/student'
     | '/submissions'
     | '/teacher'
@@ -195,6 +207,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/_authenticated/admin'
     | '/_authenticated/assignments'
+    | '/_authenticated/review-verdict'
     | '/_authenticated/student'
     | '/_authenticated/student-courses'
     | '/_authenticated/submissions'
@@ -269,6 +282,13 @@ declare module '@tanstack/react-router' {
       path: '/student'
       fullPath: '/student'
       preLoaderRoute: typeof AuthenticatedStudentRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/review-verdict': {
+      id: '/_authenticated/review-verdict'
+      path: '/review-verdict'
+      fullPath: '/review-verdict'
+      preLoaderRoute: typeof AuthenticatedReviewVerdictRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/assignments': {
@@ -363,6 +383,7 @@ const AuthenticatedStudentCoursesRouteWithChildren =
 interface AuthenticatedRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedAssignmentsRoute: typeof AuthenticatedAssignmentsRouteWithChildren
+  AuthenticatedReviewVerdictRoute: typeof AuthenticatedReviewVerdictRoute
   AuthenticatedStudentRoute: typeof AuthenticatedStudentRoute
   AuthenticatedStudentCoursesRoute: typeof AuthenticatedStudentCoursesRouteWithChildren
   AuthenticatedSubmissionsRoute: typeof AuthenticatedSubmissionsRoute
@@ -373,6 +394,7 @@ interface AuthenticatedRouteChildren {
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedAssignmentsRoute: AuthenticatedAssignmentsRouteWithChildren,
+  AuthenticatedReviewVerdictRoute: AuthenticatedReviewVerdictRoute,
   AuthenticatedStudentRoute: AuthenticatedStudentRoute,
   AuthenticatedStudentCoursesRoute:
     AuthenticatedStudentCoursesRouteWithChildren,

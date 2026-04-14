@@ -1,30 +1,22 @@
-import { useEffect, useState, type FormEvent } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useMemo, useState } from 'react'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { Loader2, Plus, Upload } from 'lucide-react'
+import { Download, Loader2 } from 'lucide-react'
 import { toast } from 'react-toastify'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { DocumentPreviewDialog } from '@/components/document-preview-dialog'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { getTeachingCourses, type CourseItem } from '@/lib/courses-api'
 import {
-  type AssignmentDocument,
-  type AssignmentTestCase,
-  addAssignmentDocument,
-  createAssignment,
-  getAllAssignmentDocuments,
-  getAssignmentDetails,
-  getAssignmentDocuments,
-  getAssignmentTestCases,
-  getTeacherAssignments,
-  updateAssignment,
-  type TeacherAssignment,
-  type UpdateAssignmentPayload,
-} from '@/lib/teacher-assignments-api'
+  exportStatisticsPdf,
+  getStatisticsOverview,
+  getStatisticsVisualization,
+  type StatisticsBucket,
+  type StatisticsOverview,
+  type StatisticsVisualization,
+} from '@/lib/statistics-reporting-api'
 import { useAuth } from '@/modules/auth/auth-context'
 
 export const Route = createFileRoute('/_authenticated/teacher')({
@@ -33,722 +25,338 @@ export const Route = createFileRoute('/_authenticated/teacher')({
     if (role && role !== 'teacher') {
       throw redirect({ to: `/${role}` as '/student' | '/admin' })
     }
-    if (role === 'teacher') {
-      throw redirect({ to: '/teacher-courses' })
-    }
   },
   component: TeacherPage,
 })
 
 function TeacherPage() {
-  const queryClient = useQueryClient()
   const { accessToken } = useAuth()
-  const [openCreateDialog, setOpenCreateDialog] = useState(false)
-  const [openAssignmentDialog, setOpenAssignmentDialog] = useState(false)
-  const [openDocumentsDialog, setOpenDocumentsDialog] = useState(false)
-  const [openTestCasesDialog, setOpenTestCasesDialog] = useState(false)
-  const [selectedAssignmentId, setSelectedAssignmentId] = useState<string | null>(null)
-  const [selectedAssignmentTitle, setSelectedAssignmentTitle] = useState<string>('')
-  const [selectedDocuments, setSelectedDocuments] = useState<AssignmentDocument[]>([])
-  const [selectedTestCases, setSelectedTestCases] = useState<AssignmentTestCase[]>([])
-  const [manageDocumentFile, setManageDocumentFile] = useState<File | null>(null)
+  const [selectedCourseId, setSelectedCourseId] = useState('')
 
-  const [createTitle, setCreateTitle] = useState('')
-  const [createChapterId, setCreateChapterId] = useState('')
-  const [createDescription, setCreateDescription] = useState('')
-  const [createDeadline, setCreateDeadline] = useState('')
-  const [createStatus, setCreateStatus] = useState<'open' | 'closed'>('open')
-  const [createMaxScore, setCreateMaxScore] = useState(100)
-  const [createCriteria, setCreateCriteria] = useState('')
-  const [createAllowLate, setCreateAllowLate] = useState(false)
-  const [createFile, setCreateFile] = useState<File | null>(null)
-  const [createTestCases, setCreateTestCases] = useState<
-    Array<{ input: string; expectedOutput: string; isSample: boolean; weight: number }>
-  >([{ input: '', expectedOutput: '', isSample: true, weight: 1 }])
-  const [manageForm, setManageForm] = useState<UpdateAssignmentPayload>({
-    title: '',
-    description: '',
-    deadline: '',
-    status: 'open',
-    maxScore: 100,
-    evaluationCriteria: '',
-    allowLateSubmission: false,
-  })
-
-  const assignmentsQuery = useQuery<{ message: string; data: TeacherAssignment[] }, Error>({
-    queryKey: ['teacher-assignments', accessToken],
+  const coursesQuery = useQuery<{ message: string; data: CourseItem[] }, Error>({
+    queryKey: ['teacher-courses', accessToken],
     enabled: Boolean(accessToken),
-    queryFn: async () => getTeacherAssignments(accessToken!),
-  })
-
-  const allDocsQuery = useQuery<{ message: string; data: Array<{ assignmentId?: string; assignmentTitle?: string; fileUrl: string; fileName: string }> }, Error>({
-    queryKey: ['teacher-assignment-documents', accessToken],
-    enabled: Boolean(accessToken),
-    queryFn: async () => getAllAssignmentDocuments(accessToken!),
+    queryFn: async () => getTeachingCourses(accessToken!),
   })
 
   useEffect(() => {
-    if (assignmentsQuery.isSuccess) toast.success(assignmentsQuery.data.message)
-  }, [assignmentsQuery.isSuccess, assignmentsQuery.data?.message])
+    if (!selectedCourseId && coursesQuery.data?.data.length) {
+      setSelectedCourseId(coursesQuery.data.data[0].id)
+    }
+  }, [coursesQuery.data?.data, selectedCourseId])
 
-  useEffect(() => {
-    if (assignmentsQuery.isError) toast.error(assignmentsQuery.error.message)
-  }, [assignmentsQuery.isError, assignmentsQuery.error?.message])
+  const selectedCourse = coursesQuery.data?.data.find((course) => course.id === selectedCourseId) ?? null
 
-  useEffect(() => {
-    if (allDocsQuery.isSuccess) toast.success(allDocsQuery.data.message)
-  }, [allDocsQuery.isSuccess, allDocsQuery.data?.message])
-
-  useEffect(() => {
-    if (allDocsQuery.isError) toast.error(allDocsQuery.error.message)
-  }, [allDocsQuery.isError, allDocsQuery.error?.message])
-
-  const createMutation = useMutation({
-    mutationFn: async () =>
-      createAssignment(accessToken!, {
-        chapterId: createChapterId,
-        title: createTitle,
-        description: createDescription,
-        deadline: new Date(createDeadline).toISOString(),
-        status: createStatus,
-        maxScore: createMaxScore,
-        testCases: createTestCases.map((testCase, index) => ({
-          input: testCase.input,
-          expectedOutput: testCase.expectedOutput,
-          isSample: testCase.isSample,
-          weight: testCase.weight,
-          orderIndex: index + 1,
-        })),
-        evaluationCriteria: createCriteria,
-        allowLateSubmission: createAllowLate,
-        document: createFile,
-      }),
-    onSuccess: async (result) => {
-      toast.success(result.message)
-      setOpenCreateDialog(false)
-      setCreateTitle('')
-      setCreateChapterId('')
-      setCreateDescription('')
-      setCreateDeadline('')
-      setCreateStatus('open')
-      setCreateMaxScore(100)
-      setCreateCriteria('')
-      setCreateAllowLate(false)
-      setCreateFile(null)
-      setCreateTestCases([{ input: '', expectedOutput: '', isSample: true, weight: 1 }])
-      await queryClient.invalidateQueries({ queryKey: ['teacher-assignments'] })
-      await queryClient.invalidateQueries({ queryKey: ['teacher-assignment-documents'] })
-    },
-    onError: (error) => toast.error(error instanceof Error ? error.message : 'Create assignment failed'),
+  const overviewQuery = useQuery<{ message: string; data: StatisticsOverview }, Error>({
+    queryKey: ['teacher-statistics-overview', accessToken, selectedCourseId],
+    enabled: Boolean(accessToken && selectedCourseId),
+    queryFn: async () => getStatisticsOverview(accessToken!, selectedCourseId),
   })
 
-  const detailsMutation = useMutation({
-    mutationFn: async (assignmentId: string) => getAssignmentDetails(accessToken!, assignmentId),
-    onSuccess: (result) => {
-      toast.success(result.message)
-      setManageForm({
-        title: result.data.title,
-        description: result.data.description,
-        deadline: new Date(result.data.deadline).toISOString().slice(0, 16),
-        status: result.data.status,
-        maxScore: result.data.maxScore,
-        evaluationCriteria: result.data.evaluationCriteria,
-        allowLateSubmission: result.data.allowLateSubmission,
-      })
-    },
-    onError: (error) => toast.error(error instanceof Error ? error.message : 'Load details failed'),
+  const visualizationQuery = useQuery<{ message: string; data: StatisticsVisualization }, Error>({
+    queryKey: ['teacher-statistics-visualization', accessToken, selectedCourseId],
+    enabled: Boolean(accessToken && selectedCourseId),
+    queryFn: async () => getStatisticsVisualization(accessToken!, selectedCourseId),
   })
 
-  const docsByAssignmentMutation = useMutation({
-    mutationFn: async (assignmentId: string) => getAssignmentDocuments(accessToken!, assignmentId),
-    onSuccess: (result) => {
-      toast.success(result.message)
-      setSelectedDocuments(result.data)
+  const exportPdfMutation = useMutation({
+    mutationFn: async () => exportStatisticsPdf(accessToken!, selectedCourseId),
+    onSuccess: ({ blob, filename }) => {
+      const objectUrl = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = objectUrl
+      anchor.download = filename ?? `statistics-report-${selectedCourseId}.pdf`
+      document.body.appendChild(anchor)
+      anchor.click()
+      document.body.removeChild(anchor)
+      URL.revokeObjectURL(objectUrl)
+      toast.success('PDF report exported successfully')
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : 'Load documents failed'),
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Export PDF failed'),
   })
 
-  const testCasesByAssignmentMutation = useMutation({
-    mutationFn: async (assignmentId: string) => getAssignmentTestCases(accessToken!, assignmentId),
-    onSuccess: (result) => {
-      toast.success(result.message)
-      setSelectedTestCases(result.data)
-    },
-    onError: (error) => toast.error(error instanceof Error ? error.message : 'Load test cases failed'),
-  })
+  const pieChartStyle = useMemo(() => {
+    const buckets = visualizationQuery.data?.data.pieChart ?? overviewQuery.data?.data.plagiarismDistribution ?? []
+    const total = buckets.reduce((sum, item) => sum + item.value, 0)
+    if (total === 0 || buckets.length === 0) {
+      return { background: 'conic-gradient(#e5e7eb 0 100%)' }
+    }
 
-  const uploadDocMutation = useMutation({
-    mutationFn: async (params: { assignmentId: string; file: File }) =>
-      addAssignmentDocument(accessToken!, params.assignmentId, params.file),
-    onSuccess: async (result) => {
-      toast.success(result.message)
-      if (selectedAssignmentId) {
-        docsByAssignmentMutation.mutate(selectedAssignmentId)
-      }
-      await queryClient.invalidateQueries({ queryKey: ['teacher-assignment-documents'] })
-    },
-    onError: (error) => toast.error(error instanceof Error ? error.message : 'Upload document failed'),
-  })
+    const colors = ['#22c55e', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6']
+    let current = 0
+    const segments = buckets.map((bucket, index) => {
+      const next = current + (bucket.value / total) * 100
+      const segment = `${colors[index % colors.length]} ${current}% ${next}%`
+      current = next
+      return segment
+    })
 
-  const updateMutation = useMutation({
-    mutationFn: async (params: { assignmentId: string; payload: UpdateAssignmentPayload }) =>
-      updateAssignment(accessToken!, params.assignmentId, params.payload),
-    onSuccess: async (result) => {
-      toast.success(result.message)
-      if (selectedAssignmentId) {
-        detailsMutation.mutate(selectedAssignmentId)
-      }
-      await queryClient.invalidateQueries({ queryKey: ['teacher-assignments'] })
-    },
-    onError: (error) => toast.error(error instanceof Error ? error.message : 'Update assignment failed'),
-  })
-
-  const onCreateSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    createMutation.mutate()
-  }
-
-  const onOpenManageAssignment = (assignment: TeacherAssignment) => {
-    setSelectedAssignmentId(assignment.id)
-    setSelectedAssignmentTitle(assignment.title)
-    setOpenAssignmentDialog(true)
-    detailsMutation.mutate(assignment.id)
-  }
-
-  const onOpenManageDocuments = (assignment: TeacherAssignment) => {
-    setSelectedAssignmentId(assignment.id)
-    setSelectedAssignmentTitle(assignment.title)
-    setSelectedDocuments([])
-    setOpenDocumentsDialog(true)
-    docsByAssignmentMutation.mutate(assignment.id)
-  }
-
-  const onOpenManageTestCases = (assignment: TeacherAssignment) => {
-    setSelectedAssignmentId(assignment.id)
-    setSelectedAssignmentTitle(assignment.title)
-    setSelectedTestCases([])
-    setOpenTestCasesDialog(true)
-    testCasesByAssignmentMutation.mutate(assignment.id)
-  }
+    return { background: `conic-gradient(${segments.join(', ')})` }
+  }, [overviewQuery.data?.data.plagiarismDistribution, visualizationQuery.data?.data.pieChart])
 
   return (
     <section className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Teacher Assignment Management</h1>
-          <p className="text-sm text-muted-foreground">Create, update, and manage assignment documents.</p>
+          <h1 className="text-2xl font-semibold">Teacher Analytics Dashboard</h1>
+          <p className="text-sm text-muted-foreground">Track suspicious plagiarism rate, submission completion, and export a PDF report.</p>
         </div>
-
-        <Dialog open={openCreateDialog} onOpenChange={setOpenCreateDialog}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4" />
-              Create Assignment
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Create Assignment</DialogTitle>
-              <DialogDescription>Fill assignment information and upload an optional document.</DialogDescription>
-            </DialogHeader>
-            <form onSubmit={onCreateSubmit} className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="create-title">Title</Label>
-                <Input id="create-title" value={createTitle} onChange={(event) => setCreateTitle(event.target.value)} required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="create-chapter-id">Chapter ID</Label>
-                <Input
-                  id="create-chapter-id"
-                  value={createChapterId}
-                  onChange={(event) => setCreateChapterId(event.target.value)}
-                  placeholder="Chapter UUID"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="create-description">Description</Label>
-                <textarea
-                  id="create-description"
-                  className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  value={createDescription}
-                  onChange={(event) => setCreateDescription(event.target.value)}
-                  required
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3 md:col-span-2">
-                <div className="space-y-2">
-                  <Label htmlFor="create-deadline">Deadline</Label>
-                  <Input
-                    id="create-deadline"
-                    type="datetime-local"
-                    value={createDeadline}
-                    onChange={(event) => setCreateDeadline(event.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="create-status">Status</Label>
-                  <select
-                    id="create-status"
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    value={createStatus}
-                    onChange={(event) => setCreateStatus(event.target.value as 'open' | 'closed')}
-                  >
-                    <option value="open">open</option>
-                    <option value="closed">closed</option>
-                  </select>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="create-max-score">Max Score</Label>
-                <Input
-                  id="create-max-score"
-                  type="number"
-                  min={1}
-                  value={createMaxScore}
-                  onChange={(event) => setCreateMaxScore(Number(event.target.value))}
-                  required
-                />
-              </div>
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="create-criteria">Evaluation Criteria</Label>
-                <textarea
-                  id="create-criteria"
-                  className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  value={createCriteria}
-                  onChange={(event) => setCreateCriteria(event.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="space-y-3 md:col-span-2">
-                <div className="flex items-center justify-between">
-                  <Label>Test Cases</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      setCreateTestCases((prev) => [
-                        ...prev,
-                        { input: '', expectedOutput: '', isSample: false, weight: 1 },
-                      ])
-                    }
-                  >
-                    Add test case
-                  </Button>
-                </div>
-                {createTestCases.map((testCase, index) => (
-                  <div key={`create-test-case-${index}`} className="space-y-3 rounded-md border p-3">
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label>Input</Label>
-                        <Input
-                          value={testCase.input}
-                          onChange={(event) =>
-                            setCreateTestCases((prev) =>
-                              prev.map((item, itemIndex) =>
-                                itemIndex === index ? { ...item, input: event.target.value } : item,
-                              ),
-                            )
-                          }
-                          placeholder="1 2 3"
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Expected Output</Label>
-                        <Input
-                          value={testCase.expectedOutput}
-                          onChange={(event) =>
-                            setCreateTestCases((prev) =>
-                              prev.map((item, itemIndex) =>
-                                itemIndex === index ? { ...item, expectedOutput: event.target.value } : item,
-                              ),
-                            )
-                          }
-                          placeholder="2"
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label>Weight</Label>
-                        <Input
-                          type="number"
-                          min={1}
-                          value={testCase.weight}
-                          onChange={(event) =>
-                            setCreateTestCases((prev) =>
-                              prev.map((item, itemIndex) =>
-                                itemIndex === index ? { ...item, weight: Number(event.target.value) || 1 } : item,
-                              ),
-                            )
-                          }
-                          required
-                        />
-                      </div>
-                      <label className="flex items-center gap-2 text-sm md:self-end">
-                        <input
-                          type="checkbox"
-                          checked={testCase.isSample}
-                          onChange={(event) =>
-                            setCreateTestCases((prev) =>
-                              prev.map((item, itemIndex) =>
-                                itemIndex === index ? { ...item, isSample: event.target.checked } : item,
-                              ),
-                            )
-                          }
-                        />
-                        Sample test case
-                      </label>
-                    </div>
-
-                    {createTestCases.length > 1 ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() =>
-                          setCreateTestCases((prev) => prev.filter((_, itemIndex) => itemIndex !== index))
-                        }
-                      >
-                        Remove
-                      </Button>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="create-document">Document (PDF)</Label>
-                <Input
-                  id="create-document"
-                  type="file"
-                  accept=".pdf"
-                  onChange={(event) => setCreateFile(event.target.files?.[0] ?? null)}
-                />
-              </div>
-              <label className="flex items-center gap-2 text-sm md:self-end">
-                <input
-                  type="checkbox"
-                  checked={createAllowLate}
-                  onChange={(event) => setCreateAllowLate(event.target.checked)}
-                />
-                Allow late submission
-              </label>
-              <DialogFooter className="md:col-span-2">
-                <Button type="submit" disabled={createMutation.isPending || !accessToken}>
-                  {createMutation.isPending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Creating...
-                    </>
-                  ) : (
-                    'Create assignment'
-                  )}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="space-y-2">
+            <Label htmlFor="analytics-course">Course</Label>
+            <select
+              id="analytics-course"
+              className="flex h-10 min-w-72 rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={selectedCourseId}
+              onChange={(event) => setSelectedCourseId(event.target.value)}
+              disabled={coursesQuery.isLoading || coursesQuery.data?.data.length === 0}
+            >
+              {coursesQuery.data?.data.map((course) => (
+                <option key={course.id} value={course.id}>
+                  {course.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Button
+            variant="outline"
+            disabled={!selectedCourseId || exportPdfMutation.isPending}
+            onClick={() => exportPdfMutation.mutate()}
+          >
+            {exportPdfMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            Export PDF
+          </Button>
+        </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Assignment Management</CardTitle>
-          <CardDescription>Your assignments displayed as clean management cards.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {assignmentsQuery.isLoading ? <p className="text-sm text-muted-foreground">Loading assignments...</p> : null}
-          {assignmentsQuery.isError ? <p className="text-sm text-destructive">{assignmentsQuery.error.message}</p> : null}
+      {coursesQuery.isLoading ? <p className="text-sm text-muted-foreground">Loading teaching courses...</p> : null}
+      {coursesQuery.isError ? <p className="text-sm text-destructive">{coursesQuery.error.message}</p> : null}
+      {coursesQuery.isSuccess && coursesQuery.data.data.length === 0 ? (
+        <Card>
+          <CardContent className="pt-6 text-sm text-muted-foreground">No teaching courses found for analytics.</CardContent>
+        </Card>
+      ) : null}
 
-          {assignmentsQuery.isSuccess ? (
-            <div className="grid gap-4 md:grid-cols-2">
-              {assignmentsQuery.data.data.map((assignment) => (
-                <div key={assignment.id} className="rounded-xl border p-4 transition-shadow hover:shadow-sm">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="space-y-1">
-                      <p className="font-semibold leading-tight">{assignment.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Deadline: {new Date(assignment.deadline).toLocaleString()}
-                      </p>
+      {selectedCourse ? (
+        <Card>
+          <CardHeader>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <CardTitle>{selectedCourse.name}</CardTitle>
+                <CardDescription>{selectedCourse.description}</CardDescription>
+              </div>
+              <Badge variant={selectedCourse.isPublished ? 'default' : 'outline'}>
+                {selectedCourse.isPublished ? 'published' : 'draft'}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="grid gap-3 text-sm md:grid-cols-3">
+            <div className="rounded-md bg-muted/40 p-3">
+              <p className="text-muted-foreground">Teacher</p>
+              <p className="font-medium">{selectedCourse.teacher.username}</p>
+            </div>
+            <div className="rounded-md bg-muted/40 p-3">
+              <p className="text-muted-foreground">Chapters</p>
+              <p className="font-medium">{selectedCourse.chapters.length}</p>
+            </div>
+            <div className="rounded-md bg-muted/40 p-3">
+              <p className="text-muted-foreground">Course ID</p>
+              <p className="truncate font-medium">{selectedCourse.id}</p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {selectedCourseId ? (
+        <>
+          {overviewQuery.isLoading || visualizationQuery.isLoading ? (
+            <p className="text-sm text-muted-foreground">Loading analytics...</p>
+          ) : null}
+          {overviewQuery.isError ? <p className="text-sm text-destructive">{overviewQuery.error.message}</p> : null}
+          {visualizationQuery.isError ? <p className="text-sm text-destructive">{visualizationQuery.error.message}</p> : null}
+
+          {overviewQuery.data && visualizationQuery.data ? (
+            <>
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <MetricCard label="Total Courses" value={overviewQuery.data.data.totalCourses} helper="In this report scope" />
+                <MetricCard label="Total Assignments" value={overviewQuery.data.data.totalAssignments} helper="Assignments in the course" />
+                <MetricCard label="Total Submissions" value={overviewQuery.data.data.totalSubmissions} helper="All received submissions" />
+                <MetricCard
+                  label="Suspicious Rate"
+                  value={`${overviewQuery.data.data.suspiciousRate.toFixed(2)}%`}
+                  helper="Potential plagiarism rate"
+                />
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-3">
+                <Card className="lg:col-span-2">
+                  <CardHeader>
+                    <CardTitle>Submission Volume</CardTitle>
+                    <CardDescription>Bar chart from visualization data.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <BarChartPanel data={visualizationQuery.data.data.barChart} />
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Plagiarism Distribution</CardTitle>
+                    <CardDescription>Pie breakdown by suspicion level.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="mx-auto flex h-40 w-40 items-center justify-center rounded-full" style={pieChartStyle}>
+                      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-background text-center text-xs font-medium">
+                        {overviewQuery.data.data.suspiciousRate.toFixed(2)}%
+                      </div>
                     </div>
-                    <Badge variant={assignment.status === 'open' ? 'default' : 'outline'}>{assignment.status}</Badge>
-                  </div>
-                  <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">{assignment.description}</p>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <Button variant="outline" size="sm" onClick={() => onOpenManageAssignment(assignment)}>
-                      Manage Assignment
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => onOpenManageDocuments(assignment)}>
-                      Manage Documents
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => onOpenManageTestCases(assignment)}>
-                      Manage Test Cases
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
+                    <DistributionLegend data={visualizationQuery.data.data.pieChart} />
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-3">
+                <Card className="lg:col-span-2">
+                  <CardHeader>
+                    <CardTitle>Submission Trend</CardTitle>
+                    <CardDescription>Trend chart by date.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <TrendChartPanel data={visualizationQuery.data.data.trendChart} />
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Completion Snapshot</CardTitle>
+                    <CardDescription>Current submission completion overview.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3 text-sm">
+                    <div className="rounded-md bg-muted/40 p-3">
+                      <p className="text-muted-foreground">Submitted</p>
+                      <p className="text-xl font-semibold">{overviewQuery.data.data.submissionCompletion.submitted}</p>
+                    </div>
+                    <div className="rounded-md bg-muted/40 p-3">
+                      <p className="text-muted-foreground">Expected Assignments</p>
+                      <p className="text-xl font-semibold">{overviewQuery.data.data.submissionCompletion.expectedAssignments}</p>
+                    </div>
+                    <div className="rounded-md bg-muted/40 p-3">
+                      <p className="text-muted-foreground">Completion Rate</p>
+                      <p className="text-xl font-semibold">{overviewQuery.data.data.submissionCompletion.completionRate.toFixed(2)}%</p>
+                    </div>
+                    <DistributionLegend data={overviewQuery.data.data.plagiarismDistribution} />
+                  </CardContent>
+                </Card>
+              </div>
+            </>
           ) : null}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Document Management</CardTitle>
-          <CardDescription>All assignment documents in one professional list.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {allDocsQuery.isLoading ? <p className="text-sm text-muted-foreground">Loading documents...</p> : null}
-          {allDocsQuery.isError ? <p className="text-sm text-destructive">{allDocsQuery.error.message}</p> : null}
-          {allDocsQuery.isSuccess && allDocsQuery.data.data.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No documents available.</p>
-          ) : null}
-          {allDocsQuery.isSuccess
-            ? allDocsQuery.data.data.map((doc) => (
-                <div
-                  key={`${doc.assignmentId}-${doc.fileName}-${doc.fileUrl}`}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm"
-                >
-                  <div>
-                    <p className="font-medium">{doc.assignmentTitle ?? 'Assignment document'}</p>
-                    <p className="text-xs text-muted-foreground">{doc.fileName}</p>
-                  </div>
-                  <DocumentPreviewDialog fileUrl={doc.fileUrl} fileName={doc.fileName} />
-                </div>
-              ))
-            : null}
-        </CardContent>
-      </Card>
-
-      <Dialog
-        open={openAssignmentDialog}
-        onOpenChange={(open) => {
-          setOpenAssignmentDialog(open)
-          if (!open) {
-            setSelectedAssignmentId(null)
-            setSelectedAssignmentTitle('')
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Manage Assignment</DialogTitle>
-            <DialogDescription>Update assignment information for: {selectedAssignmentTitle || 'N/A'}</DialogDescription>
-          </DialogHeader>
-          {detailsMutation.isPending ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Loading assignment details...
-            </div>
-          ) : (
-            <form
-              className="space-y-4"
-              onSubmit={(event) => {
-                event.preventDefault()
-                if (!selectedAssignmentId) return
-                updateMutation.mutate({
-                  assignmentId: selectedAssignmentId,
-                  payload: {
-                    ...manageForm,
-                    deadline: new Date(manageForm.deadline).toISOString(),
-                  },
-                })
-              }}
-            >
-              <div className="space-y-2">
-                <Label htmlFor="edit-title">Title</Label>
-                <Input id="edit-title" name="title" value={manageForm.title} onChange={(event) => setManageForm((prev) => ({ ...prev, title: event.target.value }))} required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-description">Description</Label>
-                <textarea
-                  id="edit-description"
-                  name="description"
-                  className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  value={manageForm.description}
-                  onChange={(event) => setManageForm((prev) => ({ ...prev, description: event.target.value }))}
-                  required
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-deadline">Deadline</Label>
-                  <Input
-                    id="edit-deadline"
-                    name="deadline"
-                    type="datetime-local"
-                    value={manageForm.deadline}
-                    onChange={(event) => setManageForm((prev) => ({ ...prev, deadline: event.target.value }))}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-status">Status</Label>
-                  <select
-                    id="edit-status"
-                    name="status"
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    value={manageForm.status}
-                    onChange={(event) => setManageForm((prev) => ({ ...prev, status: event.target.value as 'open' | 'closed' }))}
-                  >
-                    <option value="open">open</option>
-                    <option value="closed">closed</option>
-                  </select>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-max-score">Max Score</Label>
-                <Input
-                  id="edit-max-score"
-                  name="maxScore"
-                  type="number"
-                  min={1}
-                  value={manageForm.maxScore}
-                  onChange={(event) => setManageForm((prev) => ({ ...prev, maxScore: Number(event.target.value) }))}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-criteria">Evaluation Criteria</Label>
-                <textarea
-                  id="edit-criteria"
-                  name="evaluationCriteria"
-                  className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  value={manageForm.evaluationCriteria}
-                  onChange={(event) => setManageForm((prev) => ({ ...prev, evaluationCriteria: event.target.value }))}
-                  required
-                />
-              </div>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={manageForm.allowLateSubmission}
-                  onChange={(event) => setManageForm((prev) => ({ ...prev, allowLateSubmission: event.target.checked }))}
-                />
-                Allow late submission
-              </label>
-
-              <DialogFooter>
-                <Button type="submit" disabled={updateMutation.isPending || !accessToken}>
-                  {updateMutation.isPending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Updating...
-                    </>
-                  ) : (
-                    'Update assignment'
-                  )}
-                </Button>
-              </DialogFooter>
-            </form>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={openDocumentsDialog}
-        onOpenChange={(open) => {
-          setOpenDocumentsDialog(open)
-          if (!open) {
-            setSelectedAssignmentId(null)
-            setSelectedAssignmentTitle('')
-            setSelectedDocuments([])
-            setManageDocumentFile(null)
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Manage Documents</DialogTitle>
-            <DialogDescription>Assignment: {selectedAssignmentTitle || 'N/A'}</DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-2 rounded-md border p-3">
-            <Label htmlFor="manage-doc-upload">Add Document</Label>
-            <Input
-              id="manage-doc-upload"
-              type="file"
-              accept=".pdf"
-              onChange={(event) => setManageDocumentFile(event.target.files?.[0] ?? null)}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              disabled={!manageDocumentFile || uploadDocMutation.isPending || !selectedAssignmentId}
-              onClick={() => {
-                if (!manageDocumentFile || !selectedAssignmentId) return
-                uploadDocMutation.mutate({ assignmentId: selectedAssignmentId, file: manageDocumentFile })
-                setManageDocumentFile(null)
-              }}
-            >
-              <Upload className="h-4 w-4" />
-              {uploadDocMutation.isPending ? 'Uploading...' : 'Upload document'}
-            </Button>
-          </div>
-
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Documents for this assignment</p>
-            {docsByAssignmentMutation.isPending ? <p className="text-sm text-muted-foreground">Loading documents...</p> : null}
-            {selectedDocuments.length === 0 ? <p className="text-sm text-muted-foreground">No documents found.</p> : null}
-            {selectedDocuments.map((doc) => (
-              <div key={`${doc.fileUrl}-${doc.fileName}`} className="rounded-md border p-2 text-sm">
-                <p className="font-medium">{doc.fileName}</p>
-                <DocumentPreviewDialog fileUrl={doc.fileUrl} fileName={doc.fileName} />
-              </div>
-            ))}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={openTestCasesDialog}
-        onOpenChange={(open) => {
-          setOpenTestCasesDialog(open)
-          if (!open) {
-            setSelectedAssignmentId(null)
-            setSelectedAssignmentTitle('')
-            setSelectedTestCases([])
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Manage Test Cases</DialogTitle>
-            <DialogDescription>Assignment: {selectedAssignmentTitle || 'N/A'}</DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-2">
-            {testCasesByAssignmentMutation.isPending ? (
-              <p className="text-sm text-muted-foreground">Loading test cases...</p>
-            ) : null}
-            {selectedTestCases.length === 0 ? <p className="text-sm text-muted-foreground">No test cases found.</p> : null}
-
-            {selectedTestCases.map((testCase) => (
-              <div key={testCase.id ?? `${testCase.orderIndex}-${testCase.input}`} className="rounded-md border p-3 text-sm">
-                <div className="mb-2 flex flex-wrap items-center gap-2">
-                  <Badge variant="outline">#{testCase.orderIndex}</Badge>
-                  <Badge variant={testCase.isSample ? 'default' : 'secondary'}>
-                    {testCase.isSample ? 'sample' : 'hidden'}
-                  </Badge>
-                  <Badge variant="outline">weight: {testCase.weight}</Badge>
-                </div>
-                <p>
-                  <span className="font-medium">Input:</span> {testCase.input}
-                </p>
-                <p>
-                  <span className="font-medium">Expected:</span> {testCase.expectedOutput ?? '(hidden)'}
-                </p>
-              </div>
-            ))}
-          </div>
-        </DialogContent>
-      </Dialog>
+        </>
+      ) : null}
     </section>
+  )
+}
+
+function MetricCard({ label, value, helper }: { label: string; value: string | number; helper: string }) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardDescription>{label}</CardDescription>
+        <CardTitle className="text-3xl">{value}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p className="text-sm text-muted-foreground">{helper}</p>
+      </CardContent>
+    </Card>
+  )
+}
+
+function DistributionLegend({ data }: { data: StatisticsBucket[] }) {
+  const colors = ['bg-green-500', 'bg-amber-500', 'bg-red-500', 'bg-blue-500', 'bg-violet-500']
+
+  return (
+    <div className="space-y-2">
+      {data.map((item, index) => (
+        <div key={`${item.label}-${index}`} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+          <div className="flex items-center gap-2">
+            <span className={`h-3 w-3 rounded-full ${colors[index % colors.length]}`} />
+            <span>{item.label}</span>
+          </div>
+          <span className="font-medium">{item.value}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function BarChartPanel({ data }: { data: StatisticsVisualization['barChart'] }) {
+  const maxValue = Math.max(...data.map((item) => item.submissionCount), 1)
+
+  return (
+    <div className="space-y-4">
+      {data.map((item) => (
+        <div key={item.courseId} className="space-y-2">
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <span className="font-medium">{item.courseName}</span>
+            <span className="text-muted-foreground">{item.submissionCount} submissions</span>
+          </div>
+          <div className="h-3 rounded-full bg-muted">
+            <div
+              className="h-3 rounded-full bg-primary transition-all"
+              style={{ width: `${Math.max((item.submissionCount / maxValue) * 100, 6)}%` }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function TrendChartPanel({ data }: { data: StatisticsVisualization['trendChart'] }) {
+  if (data.length === 0) {
+    return <p className="text-sm text-muted-foreground">No trend data available.</p>
+  }
+
+  if (data.length === 1) {
+    return (
+      <div className="rounded-md border p-4 text-sm">
+        <p className="font-medium">{data[0].date}</p>
+        <p className="text-muted-foreground">{data[0].submissionCount} submissions</p>
+      </div>
+    )
+  }
+
+  const width = 520
+  const height = 220
+  const padding = 24
+  const maxValue = Math.max(...data.map((item) => item.submissionCount), 1)
+  const points = data
+    .map((item, index) => {
+      const x = padding + (index * (width - padding * 2)) / (data.length - 1)
+      const y = height - padding - (item.submissionCount / maxValue) * (height - padding * 2)
+      return `${x},${y}`
+    })
+    .join(' ')
+
+  return (
+    <div className="space-y-3">
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-56 w-full overflow-visible rounded-md border bg-background">
+        <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="currentColor" opacity="0.2" />
+        <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="currentColor" opacity="0.2" />
+        <polyline fill="none" stroke="currentColor" strokeWidth="3" points={points} className="text-primary" />
+        {data.map((item, index) => {
+          const x = padding + (index * (width - padding * 2)) / (data.length - 1)
+          const y = height - padding - (item.submissionCount / maxValue) * (height - padding * 2)
+          return <circle key={`${item.date}-${index}`} cx={x} cy={y} r="4" fill="currentColor" className="text-primary" />
+        })}
+      </svg>
+      <div className="grid gap-2 md:grid-cols-3">
+        {data.map((item) => (
+          <div key={item.date} className="rounded-md border p-3 text-sm">
+            <p className="font-medium">{item.date}</p>
+            <p className="text-muted-foreground">{item.submissionCount} submissions</p>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
