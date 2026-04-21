@@ -1,19 +1,20 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { Download, Loader2 } from 'lucide-react'
+import { AlertTriangle, BookOpen, ClipboardList, Download, Loader2, ShieldAlert } from 'lucide-react'
 import { toast } from 'react-toastify'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
+import { Card, CardContent } from '@/components/ui/card'
 import { getTeachingCourses, type CourseItem } from '@/lib/courses-api'
+import { getHighRiskSubmissions, type HighRiskSubmission } from '@/lib/review-verdict-api'
 import {
   exportStatisticsPdf,
   getStatisticsOverview,
+  getSubmissionTrends,
   getStatisticsVisualization,
-  type StatisticsBucket,
+  type SubmissionTrends,
   type StatisticsOverview,
   type StatisticsVisualization,
 } from '@/lib/statistics-reporting-api'
@@ -59,67 +60,72 @@ function TeacherPage() {
     queryFn: async () => getStatisticsVisualization(accessToken!, selectedCourseId),
   })
 
+  const submissionTrendsQuery = useQuery<{ message: string; data: SubmissionTrends }, Error>({
+    queryKey: ['teacher-submission-trends', accessToken, selectedCourseId, 30],
+    enabled: Boolean(accessToken && selectedCourseId),
+    queryFn: async () => getSubmissionTrends(accessToken!, selectedCourseId, 30),
+  })
+
+  const highRiskQuery = useQuery<{ message: string; data: HighRiskSubmission[] }, Error>({
+    queryKey: ['teacher-analytics-high-risk', accessToken, selectedCourseId],
+    enabled: Boolean(accessToken && selectedCourseId),
+    queryFn: async () => getHighRiskSubmissions(accessToken!, selectedCourseId),
+  })
+
   const exportPdfMutation = useMutation({
     mutationFn: async () => exportStatisticsPdf(accessToken!, selectedCourseId),
-    onSuccess: ({ blob, filename }) => {
-      const objectUrl = URL.createObjectURL(blob)
+    onSuccess: ({ downloadUrl, filename, objectUrl, report }) => {
       const anchor = document.createElement('a')
-      anchor.href = objectUrl
+      anchor.href = downloadUrl
       anchor.download = filename ?? `statistics-report-${selectedCourseId}.pdf`
+      anchor.target = '_blank'
+      anchor.rel = 'noreferrer'
       document.body.appendChild(anchor)
       anchor.click()
       document.body.removeChild(anchor)
-      URL.revokeObjectURL(objectUrl)
-      toast.success('PDF report exported successfully')
+
+      if (objectUrl) {
+        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 10_000)
+      }
+
+      toast.success(report?.fileName ? `PDF report exported: ${report.fileName}` : 'PDF report exported successfully')
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Export PDF failed'),
   })
 
-  const pieChartStyle = useMemo(() => {
-    const buckets = visualizationQuery.data?.data.pieChart ?? overviewQuery.data?.data.plagiarismDistribution ?? []
-    const total = buckets.reduce((sum, item) => sum + item.value, 0)
-    if (total === 0 || buckets.length === 0) {
-      return { background: 'conic-gradient(#e5e7eb 0 100%)' }
-    }
-
-    const colors = ['#22c55e', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6']
-    let current = 0
-    const segments = buckets.map((bucket, index) => {
-      const next = current + (bucket.value / total) * 100
-      const segment = `${colors[index % colors.length]} ${current}% ${next}%`
-      current = next
-      return segment
-    })
-
-    return { background: `conic-gradient(${segments.join(', ')})` }
-  }, [overviewQuery.data?.data.plagiarismDistribution, visualizationQuery.data?.data.pieChart])
+  const isLoadingAnalytics =
+    overviewQuery.isLoading || visualizationQuery.isLoading || submissionTrendsQuery.isLoading || highRiskQuery.isLoading
+  const analyticsError = overviewQuery.error ?? visualizationQuery.error ?? submissionTrendsQuery.error ?? highRiskQuery.error ?? null
+  const topSuspicious = [...(highRiskQuery.data?.data ?? [])]
+    .sort((left, right) => right.highestSimilarity - left.highestSimilarity)
+    .slice(0, 5)
 
   return (
     <section className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">Teacher Analytics Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Track suspicious plagiarism rate, submission completion, and export a PDF report.</p>
+          <h1 className="text-3xl font-semibold tracking-tight">Teacher Analytics Command Center</h1>
+          <p className="text-sm text-muted-foreground">Monitor submissions, detect plagiarism patterns, and track course performance.</p>
+          {selectedCourse ? <p className="mt-2 text-sm text-slate-500">{selectedCourse.name}</p> : null}
         </div>
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="space-y-2">
-            <Label htmlFor="analytics-course">Course</Label>
-            <select
-              id="analytics-course"
-              className="flex h-10 min-w-72 rounded-md border border-input bg-background px-3 py-2 text-sm"
-              value={selectedCourseId}
-              onChange={(event) => setSelectedCourseId(event.target.value)}
-              disabled={coursesQuery.isLoading || coursesQuery.data?.data.length === 0}
-            >
-              {coursesQuery.data?.data.map((course) => (
-                <option key={course.id} value={course.id}>
-                  {course.name}
-                </option>
-              ))}
-            </select>
-          </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <select
+            className="h-11 min-w-[280px] rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-700 outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-500/15"
+            value={selectedCourseId}
+            onChange={(event) => setSelectedCourseId(event.target.value)}
+            disabled={coursesQuery.isLoading || coursesQuery.data?.data.length === 0}
+          >
+            {coursesQuery.data?.data.map((course) => (
+              <option key={course.id} value={course.id}>
+                {course.name}
+              </option>
+            ))}
+          </select>
+
           <Button
             variant="outline"
+            className="h-11 rounded-xl border-slate-200"
             disabled={!selectedCourseId || exportPdfMutation.isPending}
             onClick={() => exportPdfMutation.mutate()}
           >
@@ -132,119 +138,97 @@ function TeacherPage() {
       {coursesQuery.isLoading ? <p className="text-sm text-muted-foreground">Loading teaching courses...</p> : null}
       {coursesQuery.isError ? <p className="text-sm text-destructive">{coursesQuery.error.message}</p> : null}
       {coursesQuery.isSuccess && coursesQuery.data.data.length === 0 ? (
-        <Card>
+        <Card className="rounded-2xl border-dashed">
           <CardContent className="pt-6 text-sm text-muted-foreground">No teaching courses found for analytics.</CardContent>
-        </Card>
-      ) : null}
-
-      {selectedCourse ? (
-        <Card>
-          <CardHeader>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <CardTitle>{selectedCourse.name}</CardTitle>
-                <CardDescription>{selectedCourse.description}</CardDescription>
-              </div>
-              <Badge variant={selectedCourse.isPublished ? 'default' : 'outline'}>
-                {selectedCourse.isPublished ? 'published' : 'draft'}
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="grid gap-3 text-sm md:grid-cols-3">
-            <div className="rounded-md bg-muted/40 p-3">
-              <p className="text-muted-foreground">Teacher</p>
-              <p className="font-medium">{selectedCourse.teacher.username}</p>
-            </div>
-            <div className="rounded-md bg-muted/40 p-3">
-              <p className="text-muted-foreground">Chapters</p>
-              <p className="font-medium">{selectedCourse.chapters.length}</p>
-            </div>
-            <div className="rounded-md bg-muted/40 p-3">
-              <p className="text-muted-foreground">Course ID</p>
-              <p className="truncate font-medium">{selectedCourse.id}</p>
-            </div>
-          </CardContent>
         </Card>
       ) : null}
 
       {selectedCourseId ? (
         <>
-          {overviewQuery.isLoading || visualizationQuery.isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading analytics...</p>
-          ) : null}
-          {overviewQuery.isError ? <p className="text-sm text-destructive">{overviewQuery.error.message}</p> : null}
-          {visualizationQuery.isError ? <p className="text-sm text-destructive">{visualizationQuery.error.message}</p> : null}
+          {isLoadingAnalytics ? <p className="text-sm text-muted-foreground">Loading analytics...</p> : null}
+          {analyticsError ? <p className="text-sm text-destructive">{analyticsError.message}</p> : null}
 
-          {overviewQuery.data && visualizationQuery.data ? (
+          {overviewQuery.data && visualizationQuery.data && submissionTrendsQuery.data ? (
             <>
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <MetricCard label="Total Courses" value={overviewQuery.data.data.totalCourses} helper="In this report scope" />
-                <MetricCard label="Total Assignments" value={overviewQuery.data.data.totalAssignments} helper="Assignments in the course" />
-                <MetricCard label="Total Submissions" value={overviewQuery.data.data.totalSubmissions} helper="All received submissions" />
-                <MetricCard
-                  label="Suspicious Rate"
-                  value={`${overviewQuery.data.data.suspiciousRate.toFixed(2)}%`}
-                  helper="Potential plagiarism rate"
+                <AnalyticsMetricCard
+                  title="Total Assignments"
+                  value={overviewQuery.data.data.totalAssignments}
+                  helper={`${selectedCourse?.chapters.length ?? 0} chapters in scope`}
+                  accent="+ active"
+                  icon={<BookOpen className="h-4 w-4" />}
+                />
+                <AnalyticsMetricCard
+                  title="Submissions Received"
+                  value={submissionTrendsQuery.data.data.summary.totalSubmissions}
+                  helper={`Avg ${submissionTrendsQuery.data.data.summary.averagePerDay.toFixed(2)}/day over ${submissionTrendsQuery.data.data.range.days} days`}
+                  accent={`Peak ${submissionTrendsQuery.data.data.summary.peakSubmissionCount}`}
+                  icon={<ClipboardList className="h-4 w-4" />}
+                />
+                <AnalyticsMetricCard
+                  title="Avg. Similarity Rate"
+                  value={`${overviewQuery.data.data.suspiciousRate.toFixed(1)}%`}
+                  helper="Potential plagiarism risk"
+                  accent={`${highRiskQuery.data?.data.length ?? 0} flagged`}
+                  icon={<AlertTriangle className="h-4 w-4" />}
+                  tone="danger"
+                />
+                <AnalyticsMetricCard
+                  title="Pending Reviews"
+                  value={highRiskQuery.data?.data.length ?? 0}
+                  helper="High-risk submissions waiting"
+                  accent={`${overviewQuery.data.data.submissionCompletion.submitted}/${overviewQuery.data.data.submissionCompletion.expectedAssignments}`}
+                  icon={<ShieldAlert className="h-4 w-4" />}
                 />
               </div>
 
-              <div className="grid gap-4 lg:grid-cols-3">
-                <Card className="lg:col-span-2">
-                  <CardHeader>
-                    <CardTitle>Submission Volume</CardTitle>
-                    <CardDescription>Bar chart from visualization data.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <BarChartPanel data={visualizationQuery.data.data.barChart} />
+              <div className="grid gap-5 xl:grid-cols-[minmax(0,1.9fr)_360px]">
+                <Card className="rounded-2xl border-slate-200 shadow-sm">
+                  <CardContent className="p-5">
+                    <div className="mb-5">
+                      <h2 className="text-xl font-semibold text-slate-900">Submission Trends</h2>
+                      <p className="text-sm text-slate-500">
+                        {submissionTrendsQuery.data.data.range.from} to {submissionTrendsQuery.data.data.range.to} for the selected course.
+                      </p>
+                    </div>
+                    <TrendChartPanel data={submissionTrendsQuery.data.data.points} />
                   </CardContent>
                 </Card>
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Plagiarism Distribution</CardTitle>
-                    <CardDescription>Pie breakdown by suspicion level.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="mx-auto flex h-40 w-40 items-center justify-center rounded-full" style={pieChartStyle}>
-                      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-background text-center text-xs font-medium">
-                        {overviewQuery.data.data.suspiciousRate.toFixed(2)}%
+                <Card className="rounded-2xl border-slate-200 shadow-sm">
+                  <CardContent className="p-5">
+                    <div className="mb-5 flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-rose-500" />
+                      <div>
+                        <h2 className="text-xl font-semibold text-slate-900">Top Suspicious Submissions</h2>
+                        <p className="text-sm text-slate-500">Highest similarity cases that need quick attention.</p>
                       </div>
                     </div>
-                    <DistributionLegend data={visualizationQuery.data.data.pieChart} />
-                  </CardContent>
-                </Card>
-              </div>
 
-              <div className="grid gap-4 lg:grid-cols-3">
-                <Card className="lg:col-span-2">
-                  <CardHeader>
-                    <CardTitle>Submission Trend</CardTitle>
-                    <CardDescription>Trend chart by date.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <TrendChartPanel data={visualizationQuery.data.data.trendChart} />
-                  </CardContent>
-                </Card>
+                    <div className="space-y-3">
+                      {topSuspicious.length === 0 ? (
+                        <p className="text-sm text-slate-500">No suspicious submissions found for this course.</p>
+                      ) : (
+                        topSuspicious.map((item) => (
+                          <div key={item.submissionId} className="rounded-2xl border border-slate-200 p-4">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="truncate font-semibold text-slate-900">{item.student}</p>
+                                <p className="mt-1 truncate text-sm text-slate-500">{item.assignment}</p>
+                              </div>
+                              <Badge className="border-0 bg-rose-50 text-rose-600 hover:bg-rose-50">
+                                {Math.round(item.highestSimilarity * 100)}%
+                              </Badge>
+                            </div>
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Completion Snapshot</CardTitle>
-                    <CardDescription>Current submission completion overview.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3 text-sm">
-                    <div className="rounded-md bg-muted/40 p-3">
-                      <p className="text-muted-foreground">Submitted</p>
-                      <p className="text-xl font-semibold">{overviewQuery.data.data.submissionCompletion.submitted}</p>
+                            <div className="mt-3 flex items-center justify-between gap-3">
+                              <Badge className={verdictBadgeClass(item.status)}>{verdictStatusLabel(item.status)}</Badge>
+                              <span className="text-xs text-slate-400">Review in Verdict</span>
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
-                    <div className="rounded-md bg-muted/40 p-3">
-                      <p className="text-muted-foreground">Expected Assignments</p>
-                      <p className="text-xl font-semibold">{overviewQuery.data.data.submissionCompletion.expectedAssignments}</p>
-                    </div>
-                    <div className="rounded-md bg-muted/40 p-3">
-                      <p className="text-muted-foreground">Completion Rate</p>
-                      <p className="text-xl font-semibold">{overviewQuery.data.data.submissionCompletion.completionRate.toFixed(2)}%</p>
-                    </div>
-                    <DistributionLegend data={overviewQuery.data.data.plagiarismDistribution} />
                   </CardContent>
                 </Card>
               </div>
@@ -256,107 +240,144 @@ function TeacherPage() {
   )
 }
 
-function MetricCard({ label, value, helper }: { label: string; value: string | number; helper: string }) {
+function AnalyticsMetricCard({
+  title,
+  value,
+  helper,
+  accent,
+  icon,
+  tone = 'default',
+}: {
+  title: string
+  value: string | number
+  helper: string
+  accent: string
+  icon: React.ReactNode
+  tone?: 'default' | 'danger'
+}) {
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardDescription>{label}</CardDescription>
-        <CardTitle className="text-3xl">{value}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-sm text-muted-foreground">{helper}</p>
+    <Card className={`rounded-2xl border shadow-sm ${tone === 'danger' ? 'border-rose-200' : 'border-slate-200'}`}>
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div
+            className={`flex h-10 w-10 items-center justify-center rounded-xl ${
+              tone === 'danger' ? 'bg-rose-50 text-rose-500' : 'bg-blue-50 text-blue-500'
+            }`}
+          >
+            {icon}
+          </div>
+          <Badge
+            className={`border-0 ${
+              tone === 'danger' ? 'bg-rose-50 text-rose-500 hover:bg-rose-50' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-50'
+            }`}
+          >
+            {accent}
+          </Badge>
+        </div>
+        <p className="mt-5 text-sm text-slate-500">{title}</p>
+        <p className={`mt-1 text-4xl font-semibold ${tone === 'danger' ? 'text-rose-500' : 'text-slate-900'}`}>{value}</p>
+        <p className="mt-2 text-xs text-slate-400">{helper}</p>
       </CardContent>
     </Card>
   )
 }
 
-function DistributionLegend({ data }: { data: StatisticsBucket[] }) {
-  const colors = ['bg-green-500', 'bg-amber-500', 'bg-red-500', 'bg-blue-500', 'bg-violet-500']
+function TrendChartPanel({ data }: { data: StatisticsVisualization['trendChart'] }) {
+  if (data.length === 0) {
+    return <p className="text-sm text-slate-500">No trend data available.</p>
+  }
 
-  return (
-    <div className="space-y-2">
-      {data.map((item, index) => (
-        <div key={`${item.label}-${index}`} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
-          <div className="flex items-center gap-2">
-            <span className={`h-3 w-3 rounded-full ${colors[index % colors.length]}`} />
-            <span>{item.label}</span>
-          </div>
-          <span className="font-medium">{item.value}</span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function BarChartPanel({ data }: { data: StatisticsVisualization['barChart'] }) {
+  const width = 780
+  const height = 280
+  const paddingX = 40
+  const paddingY = 28
   const maxValue = Math.max(...data.map((item) => item.submissionCount), 1)
+
+  const points = data
+    .map((item, index) => {
+      const x = paddingX + (index * (width - paddingX * 2)) / Math.max(data.length - 1, 1)
+      const y = height - paddingY - (item.submissionCount / maxValue) * (height - paddingY * 2)
+      return { ...item, x, y }
+    })
 
   return (
     <div className="space-y-4">
-      {data.map((item) => (
-        <div key={item.courseId} className="space-y-2">
-          <div className="flex items-center justify-between gap-3 text-sm">
-            <span className="font-medium">{item.courseName}</span>
-            <span className="text-muted-foreground">{item.submissionCount} submissions</span>
-          </div>
-          <div className="h-3 rounded-full bg-muted">
-            <div
-              className="h-3 rounded-full bg-primary transition-all"
-              style={{ width: `${Math.max((item.submissionCount / maxValue) * 100, 6)}%` }}
+      <div className="overflow-hidden rounded-2xl border border-slate-100 bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] p-4">
+        <svg viewBox={`0 0 ${width} ${height}`} className="h-72 w-full">
+          {[0, 0.25, 0.5, 0.75, 1].map((step) => {
+            const y = paddingY + step * (height - paddingY * 2)
+            return (
+              <line
+                key={step}
+                x1={paddingX}
+                y1={y}
+                x2={width - paddingX}
+                y2={y}
+                stroke="#e2e8f0"
+                strokeDasharray="4 4"
+              />
+            )
+          })}
+
+          {points.map((point, index) => (
+            <line
+              key={`${point.date}-${index}`}
+              x1={point.x}
+              y1={paddingY}
+              x2={point.x}
+              y2={height - paddingY}
+              stroke="#eef2ff"
+              strokeDasharray="4 4"
             />
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
+          ))}
 
-function TrendChartPanel({ data }: { data: StatisticsVisualization['trendChart'] }) {
-  if (data.length === 0) {
-    return <p className="text-sm text-muted-foreground">No trend data available.</p>
-  }
+          <polyline
+            fill="none"
+            stroke="#e0a100"
+            strokeWidth="3"
+            points={points.map((point) => `${point.x},${point.y}`).join(' ')}
+          />
 
-  if (data.length === 1) {
-    return (
-      <div className="rounded-md border p-4 text-sm">
-        <p className="font-medium">{data[0].date}</p>
-        <p className="text-muted-foreground">{data[0].submissionCount} submissions</p>
+          {points.map((point, index) => (
+            <circle key={`${point.date}-${index}`} cx={point.x} cy={point.y} r="4" fill="#e0a100" />
+          ))}
+
+          {points.map((point, index) => (
+            <text key={`label-${point.date}-${index}`} x={point.x} y={height - 8} textAnchor="middle" fontSize="12" fill="#94a3b8">
+              {point.date}
+            </text>
+          ))}
+        </svg>
       </div>
-    )
-  }
 
-  const width = 520
-  const height = 220
-  const padding = 24
-  const maxValue = Math.max(...data.map((item) => item.submissionCount), 1)
-  const points = data
-    .map((item, index) => {
-      const x = padding + (index * (width - padding * 2)) / (data.length - 1)
-      const y = height - padding - (item.submissionCount / maxValue) * (height - padding * 2)
-      return `${x},${y}`
-    })
-    .join(' ')
-
-  return (
-    <div className="space-y-3">
-      <svg viewBox={`0 0 ${width} ${height}`} className="h-56 w-full overflow-visible rounded-md border bg-background">
-        <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="currentColor" opacity="0.2" />
-        <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="currentColor" opacity="0.2" />
-        <polyline fill="none" stroke="currentColor" strokeWidth="3" points={points} className="text-primary" />
-        {data.map((item, index) => {
-          const x = padding + (index * (width - padding * 2)) / (data.length - 1)
-          const y = height - padding - (item.submissionCount / maxValue) * (height - padding * 2)
-          return <circle key={`${item.date}-${index}`} cx={x} cy={y} r="4" fill="currentColor" className="text-primary" />
-        })}
-      </svg>
-      <div className="grid gap-2 md:grid-cols-3">
-        {data.map((item) => (
-          <div key={item.date} className="rounded-md border p-3 text-sm">
-            <p className="font-medium">{item.date}</p>
-            <p className="text-muted-foreground">{item.submissionCount} submissions</p>
+      <div className="flex flex-wrap gap-3 text-xs text-slate-500">
+        {points.map((point) => (
+          <div key={point.date} className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-amber-500" />
+            <span>
+              {point.date}: {point.submissionCount}
+            </span>
           </div>
         ))}
       </div>
     </div>
   )
+}
+
+function verdictStatusLabel(status: HighRiskSubmission['status']) {
+  if (status === 'confirmed_copy') return 'Confirmed Copy'
+  if (status === 'clean') return 'Clean'
+  return 'Under Review'
+}
+
+function verdictBadgeClass(status: HighRiskSubmission['status']) {
+  if (status === 'confirmed_copy') {
+    return 'border-0 bg-rose-50 text-rose-600 hover:bg-rose-50'
+  }
+
+  if (status === 'clean') {
+    return 'border-0 bg-emerald-50 text-emerald-600 hover:bg-emerald-50'
+  }
+
+  return 'border-0 bg-amber-50 text-amber-600 hover:bg-amber-50'
 }

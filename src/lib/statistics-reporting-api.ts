@@ -35,6 +35,43 @@ export interface StatisticsVisualization {
   }>
 }
 
+export interface SubmissionTrends {
+  course: {
+    id: string
+    name: string
+  }
+  range: {
+    days: number
+    from: string
+    to: string
+    granularity: string
+  }
+  summary: {
+    totalSubmissions: number
+    averagePerDay: number
+    peakDate: string
+    peakSubmissionCount: number
+  }
+  points: Array<{
+    date: string
+    submissionCount: number
+  }>
+}
+
+export interface ExportedStatisticsReport {
+  id: string
+  fileUrl: string
+  fileName: string
+  metadata?: unknown
+}
+
+export interface ExportStatisticsPdfResult {
+  downloadUrl: string
+  filename: string | null
+  objectUrl?: string
+  report?: ExportedStatisticsReport
+}
+
 function extractMessage(body: unknown, fallback: string) {
   if (typeof body === 'object' && body !== null && 'message' in body && typeof (body as { message?: unknown }).message === 'string') {
     return (body as { message: string }).message
@@ -101,6 +138,24 @@ export async function getStatisticsVisualization(accessToken: string, courseId: 
   )
 }
 
+export async function getSubmissionTrends(accessToken: string, courseId: string, days = 30) {
+  const url = new URL('http://localhost:3000/statistics-reporting/submission-trends')
+  url.searchParams.set('courseId', courseId)
+  url.searchParams.set('days', String(days))
+
+  return requestJson<SubmissionTrends>(
+    url.toString(),
+    {
+      method: 'GET',
+      headers: {
+        accept: '*/*',
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+    'Failed to load submission trends',
+  )
+}
+
 function getFilenameFromDisposition(disposition: string | null) {
   if (!disposition) return null
   const match = disposition.match(/filename="?([^"]+)"?/)
@@ -128,8 +183,29 @@ export async function exportStatisticsPdf(accessToken: string, courseId: string)
     throw new Error(extractMessage(body, 'Failed to export PDF report'))
   }
 
+  const contentType = response.headers.get('content-type') ?? ''
+  if (contentType.includes('application/json')) {
+    const body = (await readBody(response)) as ApiEnvelope<ExportedStatisticsReport> | null
+    const report = body?.data
+
+    if (!report?.fileUrl) {
+      throw new Error('PDF report was generated but no file URL was returned.')
+    }
+
+    return {
+      downloadUrl: report.fileUrl,
+      filename: report.fileName ?? null,
+      report,
+    } satisfies ExportStatisticsPdfResult
+  }
+
   const blob = await response.blob()
   const filename = getFilenameFromDisposition(response.headers.get('content-disposition'))
+  const objectUrl = URL.createObjectURL(blob)
 
-  return { blob, filename }
+  return {
+    downloadUrl: objectUrl,
+    filename,
+    objectUrl,
+  } satisfies ExportStatisticsPdfResult
 }

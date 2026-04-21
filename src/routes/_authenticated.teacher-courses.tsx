@@ -6,7 +6,7 @@ import { toast } from 'react-toastify'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { DocumentPreviewDialog } from '@/components/document-preview-dialog'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -320,13 +320,13 @@ function TeacherCoursesPage() {
     <section className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Course Management</h1>
-          <p className="text-sm text-muted-foreground">Create courses, manage chapters, and control chapter assignments in one place.</p>
+          <h1 className="text-3xl font-semibold tracking-tight">My Courses</h1>
+          <p className="text-sm text-muted-foreground">Manage and organize your teaching content.</p>
         </div>
 
         <Dialog open={openCreateCourse} onOpenChange={setOpenCreateCourse}>
           <DialogTrigger asChild>
-            <Button>
+            <Button className="rounded-xl bg-slate-950 text-white hover:bg-slate-900">
               <Plus className="h-4 w-4" />
               Create Course
             </Button>
@@ -366,41 +366,65 @@ function TeacherCoursesPage() {
         </Dialog>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>My Teaching Courses</CardTitle>
-          <CardDescription>Courses assigned to your teacher account.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {coursesQuery.isLoading ? <p className="text-sm text-muted-foreground">Loading courses...</p> : null}
-          {coursesQuery.isError ? <p className="text-sm text-destructive">{coursesQuery.error.message}</p> : null}
-          {coursesQuery.isSuccess && coursesQuery.data.data.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No courses found.</p>
-          ) : null}
+      {coursesQuery.isLoading ? <p className="text-sm text-muted-foreground">Loading courses...</p> : null}
+      {coursesQuery.isError ? <p className="text-sm text-destructive">{coursesQuery.error.message}</p> : null}
+      {coursesQuery.isSuccess && coursesQuery.data.data.length === 0 ? (
+        <Card className="rounded-2xl border-dashed">
+          <CardContent className="pt-6 text-sm text-muted-foreground">No courses found.</CardContent>
+        </Card>
+      ) : null}
 
-          {coursesQuery.isSuccess
-            ? coursesQuery.data.data.map((course) => (
-                <div key={course.id} className="rounded-lg border p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <p className="font-semibold">{course.name}</p>
-                      <p className="text-xs text-muted-foreground">{course.description}</p>
+      {coursesQuery.isSuccess ? (
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          {coursesQuery.data.data.map((course) => {
+            const assignmentCount = course.chapters.filter((chapter) => chapter.assignmentId).length
+
+            return (
+              <Card key={course.id} className="h-full rounded-2xl border-slate-200 shadow-sm transition-shadow hover:shadow-md">
+                <CardContent className="flex h-full p-5">
+                  <div className="flex h-full w-full items-start gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-500">
+                      <Upload className="h-5 w-5 rotate-180" />
                     </div>
-                    <Badge variant={course.isPublished ? 'default' : 'outline'}>
-                      {course.isPublished ? 'published' : 'draft'}
-                    </Badge>
+
+                    <div className="flex min-w-0 flex-1 flex-col">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-h-[92px] flex-1">
+                          <p className="line-clamp-2 text-xl font-semibold leading-tight text-slate-900">{course.name}</p>
+                          <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-500">{course.description}</p>
+                        </div>
+
+                        <Badge
+                          className={
+                            course.isPublished
+                              ? 'border-0 bg-emerald-50 text-emerald-600 hover:bg-emerald-50'
+                              : 'border-0 bg-slate-100 text-slate-500 hover:bg-slate-100'
+                          }
+                        >
+                          {course.isPublished ? 'Published' : 'Draft'}
+                        </Badge>
+                      </div>
+
+                      <div className="mt-5 min-h-[24px] flex flex-wrap gap-4 text-sm text-slate-500">
+                        <span>{course.chapters.length} lessons</span>
+                        <span>•</span>
+                        <span>{assignmentCount} assignments</span>
+                      </div>
+
+                      <Button
+                        className="mt-auto h-11 w-full rounded-xl bg-slate-950 text-white hover:bg-slate-900"
+                        onClick={() => onOpenManage(course)}
+                      >
+                        Manage Course
+                      </Button>
+                    </div>
                   </div>
-                  <p className="mt-2 text-xs text-muted-foreground">Chapters: {course.chapters.length}</p>
-                  <div className="mt-3">
-                    <Button variant="outline" size="sm" onClick={() => onOpenManage(course)}>
-                      Manage course
-                    </Button>
-                  </div>
-                </div>
-              ))
-            : null}
-        </CardContent>
-      </Card>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+      ) : null}
 
       <Dialog
         open={openManageCourse}
