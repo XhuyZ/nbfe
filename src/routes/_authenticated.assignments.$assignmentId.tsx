@@ -16,6 +16,9 @@ import { submitAssignmentWithCode, submitAssignmentWithFile } from '@/lib/studen
 import { useAuth } from '@/modules/auth/auth-context'
 
 export const Route = createFileRoute('/_authenticated/assignments/$assignmentId')({
+  validateSearch: (search: Record<string, unknown>) => ({
+    courseId: typeof search.courseId === 'string' ? search.courseId : undefined,
+  }),
   beforeLoad: ({ context }) => {
     const role = context.auth.user?.role
     if (role && role !== 'student') {
@@ -27,6 +30,7 @@ export const Route = createFileRoute('/_authenticated/assignments/$assignmentId'
 
 function AssignmentDetailPage() {
   const { assignmentId } = Route.useParams()
+  const { courseId } = Route.useSearch()
   const { accessToken } = useAuth()
   const navigate = useNavigate()
 
@@ -88,7 +92,7 @@ function AssignmentDetailPage() {
     <section className="space-y-6">
       <div className="flex items-center justify-between">
         <Button variant="outline" asChild>
-          <Link to="/assignments">
+          <Link to="/assignments" search={{ courseId }}>
             <ArrowLeft className="h-4 w-4" />
             Back to assignments
           </Link>

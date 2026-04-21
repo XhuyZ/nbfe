@@ -103,7 +103,7 @@ function StudentCourseDetailPage() {
               {isEnrolled ? 'Enrolled' : enrollMutation.isPending ? 'Enrolling...' : 'Enroll course'}
             </Button>
             {isEnrolled ? (
-              <Button variant="secondary" onClick={() => navigate({ to: '/assignments' })}>
+              <Button variant="secondary" onClick={() => navigate({ to: '/assignments', search: { courseId: course.id } })}>
                 Go to My Assignments
               </Button>
             ) : null}

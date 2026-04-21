@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
-import { RoleDashboard } from '@/components/role-dashboard'
+import { StudentDashboard } from '@/components/student-dashboard'
 
 export const Route = createFileRoute('/_authenticated/student')({
   beforeLoad: ({ context }) => {
@@ -13,5 +13,5 @@ export const Route = createFileRoute('/_authenticated/student')({
 })
 
 function StudentPage() {
-  return <RoleDashboard role="student" />
+  return <StudentDashboard />
 }
