@@ -90,41 +90,43 @@ function StudentCoursesIndexPage() {
             const progress = totalChapters > 0 ? Math.round((completedChapters / totalChapters) * 100) : 0
 
             return (
-              <Card key={course.id} className="overflow-hidden rounded-2xl border-slate-200 shadow-sm">
-                <div className={`h-20 border-b ${accentStyle.bannerClassName}`} />
+              <Card key={course.id} className="flex h-full flex-col overflow-hidden rounded-2xl border-slate-200 shadow-sm">
+                <div className={`h-20 shrink-0 border-b ${accentStyle.bannerClassName}`} />
 
-                <CardContent className="space-y-4 pt-6">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h2 className="text-xl font-semibold leading-snug text-slate-900">{course.name}</h2>
-                      <p className="mt-2 line-clamp-2 text-sm text-slate-500">{course.description}</p>
+                <CardContent className="flex flex-1 flex-col pt-6">
+                  <div className="flex-1 space-y-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h2 className="text-xl font-semibold leading-snug text-slate-900">{course.name}</h2>
+                        <p className="mt-2 line-clamp-2 text-sm text-slate-500">{course.description}</p>
+                      </div>
+                      <Badge variant={course.isPublished ? 'default' : 'outline'} className="shrink-0">
+                        {course.isPublished ? 'Published' : 'Active'}
+                      </Badge>
                     </div>
-                    <Badge variant={course.isPublished ? 'default' : 'outline'}>
-                      {course.isPublished ? 'Published' : 'Active'}
-                    </Badge>
-                  </div>
 
-                  <div className="flex flex-wrap gap-4 text-xs text-slate-500">
-                    <span className="inline-flex items-center gap-1.5">
-                      <UserRound className="h-3.5 w-3.5" />
-                      Teacher: {course.teacher.username}
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                      <BookOpen className="h-3.5 w-3.5" />
-                      Chapters: {course.chapters.length}
-                    </span>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="h-2 rounded-full bg-slate-200">
-                      <div className={`h-2 rounded-full ${accentStyle.progressClassName}`} style={{ width: `${progress}%` }} />
+                    <div className="flex flex-wrap gap-4 text-xs text-slate-500">
+                      <span className="inline-flex items-center gap-1.5">
+                        <UserRound className="h-3.5 w-3.5" />
+                        Teacher: {course.teacher.username}
+                      </span>
+                      <span className="inline-flex items-center gap-1.5">
+                        <BookOpen className="h-3.5 w-3.5" />
+                        Chapters: {course.chapters.length}
+                      </span>
                     </div>
-                    <p className="text-xs text-slate-500">
-                      {completedChapters} of {totalChapters} chapters completed
-                    </p>
+
+                    <div className="space-y-2">
+                      <div className="h-2 rounded-full bg-slate-200">
+                        <div className={`h-2 rounded-full ${accentStyle.progressClassName}`} style={{ width: `${progress}%` }} />
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        {completedChapters} of {totalChapters} chapters completed
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="mt-auto flex gap-2">
                     <Button className="flex-1" size="sm" asChild>
                       <Link to="/student/my-courses/$courseId" params={{ courseId: course.id }}>
                         Continue Learning

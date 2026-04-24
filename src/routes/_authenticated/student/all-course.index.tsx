@@ -113,45 +113,39 @@ function StudentAllCoursesPage() {
         ) : null}
 
         {allCoursesQuery.isSuccess
-            ? filteredCourses.map((course, index) => (
-              <Card key={course.id} className="h-full overflow-hidden rounded-2xl border-slate-200 shadow-sm">
-                <div className={`relative h-24 ${accentStyles[index % accentStyles.length]}`}>
-                  <Badge className="absolute right-3 top-3 border-0 bg-white/95 text-slate-600 shadow-none hover:bg-white/95">
-                    {course.isPublished ? 'Published' : 'New'}
-                  </Badge>
+          ? filteredCourses.map((course, index) => (
+            <Card key={course.id} className="flex h-full flex-col overflow-hidden rounded-2xl border-slate-200 shadow-sm">
+              <div className={`relative h-24 ${accentStyles[index % accentStyles.length]}`}>
+                <Badge className="absolute right-3 top-3 border-0 bg-white/95 text-slate-600 shadow-none hover:bg-white/95">
+                  {course.isPublished ? 'Published' : 'New'}
+                </Badge>
+              </div>
+
+              <CardContent className="flex flex-1 flex-col pt-5">
+                <div className="flex-1">
+                  <h2 className="line-clamp-2 text-[1.35rem] font-semibold leading-tight text-slate-900">{course.name}</h2>
+                  <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-500">{course.description}</p>
                 </div>
 
-                <CardContent className="flex h-[260px] flex-col pt-5">
-                  <div className="min-h-[120px]">
-                    <h2 className="line-clamp-2 text-[1.35rem] font-semibold leading-tight text-slate-900">{course.name}</h2>
-                    <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-500">{course.description}</p>
-                  </div>
+                <div className="mt-6 flex flex-wrap gap-4 text-xs text-slate-500">
+                  <span className="inline-flex items-center gap-1.5">
+                    <UserRound className="h-3.5 w-3.5" />
+                    Teacher: {course.teacher.username}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <BookOpen className="h-3.5 w-3.5" />
+                    Chapters: {course.chapters.length}
+                  </span>
+                </div>
 
-                  <div className="grid min-h-[56px] grid-cols-2 gap-3 text-xs text-slate-500">
-                    <div className="space-y-1">
-                      <p className="inline-flex items-center gap-1.5">
-                        <UserRound className="h-3.5 w-3.5" />
-                        Teacher:
-                      </p>
-                      <p className="font-medium text-slate-700">{course.teacher.username}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="inline-flex items-center gap-1.5">
-                        <BookOpen className="h-3.5 w-3.5" />
-                        Chapters
-                      </p>
-                      <p className="font-medium text-slate-700">{course.chapters.length}</p>
-                    </div>
-                  </div>
-
-                  <Button className="mt-auto w-full" asChild>
-                    <Link to="/student/all-course/$courseId" params={{ courseId: course.id }}>
-                      View Details & Enroll
-                    </Link>
-                  </Button>
-                </CardContent>
-              </Card>
-            ))
+                <Button className="mt-auto w-full" asChild>
+                  <Link to="/student/all-course/$courseId" params={{ courseId: course.id }}>
+                    View Details & Enroll
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
+          ))
           : null}
       </div>
 
