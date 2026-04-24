@@ -270,16 +270,14 @@ function AnalyticsMetricCard({
       <CardContent className="p-5">
         <div className="flex items-start justify-between gap-3">
           <div
-            className={`flex h-10 w-10 items-center justify-center rounded-xl ${
-              tone === 'danger' ? 'bg-rose-50 text-rose-500' : 'bg-blue-50 text-blue-500'
-            }`}
+            className={`flex h-10 w-10 items-center justify-center rounded-xl ${tone === 'danger' ? 'bg-rose-50 text-rose-500' : 'bg-blue-50 text-blue-500'
+              }`}
           >
             {icon}
           </div>
           <Badge
-            className={`border-0 ${
-              tone === 'danger' ? 'bg-rose-50 text-rose-500 hover:bg-rose-50' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-50'
-            }`}
+            className={`border-0 ${tone === 'danger' ? 'bg-rose-50 text-rose-500 hover:bg-rose-50' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-50'
+              }`}
           >
             {accent}
           </Badge>
@@ -329,46 +327,57 @@ function TrendChartPanel({ data }: { data: StatisticsVisualization['trendChart']
             )
           })}
 
-          {points.map((point, index) => (
-            <line
-              key={`${point.date}-${index}`}
-              x1={point.x}
-              y1={paddingY}
-              x2={point.x}
-              y2={height - paddingY}
-              stroke="#eef2ff"
-              strokeDasharray="4 4"
-            />
-          ))}
+          {points.map((point, index) => {
+            // Only draw background vertical lines for shown labels or skip some
+            if (index % 5 !== 0 && index !== 0 && index !== points.length - 1) return null
+            return (
+              <line
+                key={`${point.date}-${index}`}
+                x1={point.x}
+                y1={paddingY}
+                x2={point.x}
+                y2={height - paddingY}
+                stroke="#eef2ff"
+                strokeDasharray="4 4"
+              />
+            )
+          })}
 
           <polyline
             fill="none"
             stroke="#e0a100"
             strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
             points={points.map((point) => `${point.x},${point.y}`).join(' ')}
           />
 
           {points.map((point, index) => (
-            <circle key={`${point.date}-${index}`} cx={point.x} cy={point.y} r="4" fill="#e0a100" />
+            <circle key={`${point.date}-${index}`} cx={point.x} cy={point.y} r="4" fill="#e0a100" className="transition-all hover:r-6">
+              <title>{`${point.date}: ${point.submissionCount} submissions`}</title>
+            </circle>
           ))}
 
-          {points.map((point, index) => (
-            <text key={`label-${point.date}-${index}`} x={point.x} y={height - 8} textAnchor="middle" fontSize="12" fill="#94a3b8">
-              {point.date}
-            </text>
-          ))}
+          {points.map((point, index) => {
+            // Show first, last, and every 5th label to avoid crowding
+            const shouldShowLabel = index === 0 || index === points.length - 1 || index % 5 === 0
+            if (!shouldShowLabel) return null
+
+            return (
+              <text
+                key={`label-${point.date}-${index}`}
+                x={point.x}
+                y={height - 8}
+                textAnchor={index === 0 ? 'start' : index === points.length - 1 ? 'end' : 'middle'}
+                fontSize="10"
+                fill="#94a3b8"
+                className="font-medium"
+              >
+                {point.date}
+              </text>
+            )
+          })}
         </svg>
-      </div>
-
-      <div className="flex flex-wrap gap-3 text-xs text-slate-500">
-        {points.map((point) => (
-          <div key={point.date} className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-amber-500" />
-            <span>
-              {point.date}: {point.submissionCount}
-            </span>
-          </div>
-        ))}
       </div>
     </div>
   )
