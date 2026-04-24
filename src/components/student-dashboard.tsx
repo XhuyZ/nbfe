@@ -292,12 +292,12 @@ export function StudentDashboard() {
 
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm" className="flex-1" asChild>
-                      <Link to="/student-courses/$courseId" params={{ courseId: course.id }}>
+                      <Link to="/student/my-courses/$courseId" params={{ courseId: course.id }}>
                         View course
                       </Link>
                     </Button>
                     <Button size="sm" className="flex-1" asChild>
-                      <Link to="/assignments" search={{ courseId: course.id }}>
+                      <Link to="/student/assignments" search={{ courseId: course.id }}>
                         Assignments
                       </Link>
                     </Button>
@@ -351,7 +351,7 @@ export function StudentDashboard() {
 
                   <Button className="mt-5 w-full" asChild>
                     <Link
-                      to="/assignments/$assignmentId"
+                      to="/student/assignments/$assignmentId"
                       params={{ assignmentId: assignment.id }}
                       search={{ courseId: assignment.chapter?.course?.id }}
                     >

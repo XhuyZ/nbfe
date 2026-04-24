@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { Outlet, createFileRoute, redirect, useLocation } from '@tanstack/react-router'
 import { AlertTriangle, BookOpen, ClipboardList, Download, Loader2, ShieldAlert } from 'lucide-react'
 import { toast } from 'react-toastify'
 
@@ -27,8 +27,18 @@ export const Route = createFileRoute('/_authenticated/teacher')({
       throw redirect({ to: `/${role}` as '/student' | '/admin' })
     }
   },
-  component: TeacherPage,
+  component: TeacherRoute,
 })
+
+function TeacherRoute() {
+  const location = useLocation()
+
+  if (location.pathname !== '/teacher' && location.pathname !== '/teacher/') {
+    return <Outlet />
+  }
+
+  return <TeacherPage />
+}
 
 function TeacherPage() {
   const { accessToken } = useAuth()

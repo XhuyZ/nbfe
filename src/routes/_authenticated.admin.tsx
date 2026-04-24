@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { Outlet, createFileRoute, redirect, useLocation } from '@tanstack/react-router'
 import { Loader2, Plus } from 'lucide-react'
 import { toast } from 'react-toastify'
 
@@ -21,8 +21,18 @@ export const Route = createFileRoute('/_authenticated/admin')({
       throw redirect({ to: `/${role}` as '/student' | '/teacher' })
     }
   },
-  component: AdminPage,
+  component: AdminRoute,
 })
+
+function AdminRoute() {
+  const location = useLocation()
+
+  if (location.pathname !== '/admin' && location.pathname !== '/admin/') {
+    return <Outlet />
+  }
+
+  return <AdminPage />
+}
 
 function AdminPage() {
   const queryClient = useQueryClient()

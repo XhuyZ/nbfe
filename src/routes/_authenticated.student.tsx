@@ -1,4 +1,4 @@
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { Outlet, createFileRoute, redirect, useLocation } from '@tanstack/react-router'
 
 import { StudentDashboard } from '@/components/student-dashboard'
 
@@ -9,9 +9,15 @@ export const Route = createFileRoute('/_authenticated/student')({
       throw redirect({ to: `/${role}` as '/teacher' | '/admin' })
     }
   },
-  component: StudentPage,
+  component: StudentRoute,
 })
 
-function StudentPage() {
+function StudentRoute() {
+  const location = useLocation()
+
+  if (location.pathname !== '/student' && location.pathname !== '/student/') {
+    return <Outlet />
+  }
+
   return <StudentDashboard />
 }

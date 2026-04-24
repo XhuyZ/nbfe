@@ -15,31 +15,32 @@ const menuByRole: Record<
       | '/student'
       | '/teacher'
       | '/admin'
-      | '/submissions'
-      | '/assignments'
-      | '/teacher-courses'
-      | '/student-courses'
-      | '/student-courses/all'
-      | '/review-verdict'
+      | '/student/all-course'
+      | '/student/my-courses'
+      | '/student/assignments'
+      | '/student/submissions'
+      | '/teacher/courses'
+      | '/teacher/review-verdict'
+      | '/admin/review-verdict'
     label: string
     icon: ReactNode
   }>
 > = {
   student: [
     { to: '/student', label: 'Student Dashboard', icon: <User className="h-4 w-4" /> },
-    { to: '/student-courses/all', label: 'All Courses', icon: <GraduationCap className="h-4 w-4" /> },
-    { to: '/student-courses', label: 'My Courses', icon: <GraduationCap className="h-4 w-4" /> },
-    { to: '/assignments', label: 'My Assignments', icon: <FileText className="h-4 w-4" /> },
-    { to: '/submissions', label: 'Submissions', icon: <FileCode2 className="h-4 w-4" /> },
+    { to: '/student/all-course', label: 'All Courses', icon: <GraduationCap className="h-4 w-4" /> },
+    { to: '/student/my-courses', label: 'My Courses', icon: <GraduationCap className="h-4 w-4" /> },
+    { to: '/student/assignments', label: 'My Assignments', icon: <FileText className="h-4 w-4" /> },
+    { to: '/student/submissions', label: 'Submissions', icon: <FileCode2 className="h-4 w-4" /> },
   ],
   teacher: [
     { to: '/teacher', label: 'Analytics', icon: <BarChart3 className="h-4 w-4" /> },
-    { to: '/teacher-courses', label: 'Course Management', icon: <BookOpenCheck className="h-4 w-4" /> },
-    { to: '/review-verdict', label: 'Review & Verdict', icon: <FileSearch className="h-4 w-4" /> },
+    { to: '/teacher/courses', label: 'Course Management', icon: <BookOpenCheck className="h-4 w-4" /> },
+    { to: '/teacher/review-verdict', label: 'Review & Verdict', icon: <FileSearch className="h-4 w-4" /> },
   ],
   admin: [
     { to: '/admin', label: 'Admin Dashboard', icon: <Shield className="h-4 w-4" /> },
-    { to: '/review-verdict', label: 'Review & Verdict', icon: <FileSearch className="h-4 w-4" /> },
+    { to: '/admin/review-verdict', label: 'Review & Verdict', icon: <FileSearch className="h-4 w-4" /> },
   ],
 }
 

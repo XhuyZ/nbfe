@@ -1,0 +1,138 @@
+import { useEffect } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link, createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
+import { ArrowLeft } from 'lucide-react'
+import { toast } from 'react-toastify'
+
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { enrollCourse, getCourseById, getEnrolledCourses } from '@/lib/courses-api'
+import { useAuth } from '@/modules/auth/auth-context'
+
+export const Route = createFileRoute('/_authenticated/student/my-courses/$courseId')({
+  beforeLoad: ({ context }) => {
+    const role = context.auth.user?.role
+    if (role && role !== 'student') {
+      throw redirect({ to: `/${role}` as '/teacher' | '/admin' })
+    }
+  },
+  component: StudentCourseDetailPage,
+})
+
+function StudentCourseDetailPage() {
+  const { accessToken } = useAuth()
+  const queryClient = useQueryClient()
+  const navigate = useNavigate()
+  const { courseId } = Route.useParams()
+
+  const courseQuery = useQuery({
+    queryKey: ['student-course-detail', accessToken, courseId],
+    enabled: Boolean(accessToken),
+    queryFn: async () => getCourseById(accessToken!, courseId),
+  })
+
+  const enrolledQuery = useQuery({
+    queryKey: ['student-enrolled-courses', accessToken],
+    enabled: Boolean(accessToken),
+    queryFn: async () => getEnrolledCourses(accessToken!),
+  })
+
+  useEffect(() => {
+    if (courseQuery.isSuccess) toast.success(courseQuery.data.message)
+  }, [courseQuery.isSuccess, courseQuery.data?.message])
+
+  useEffect(() => {
+    if (courseQuery.isError) toast.error(courseQuery.error.message)
+  }, [courseQuery.isError, courseQuery.error?.message])
+
+  const enrollMutation = useMutation({
+    mutationFn: async () => enrollCourse(accessToken!, courseId),
+    onSuccess: async (result) => {
+      toast.success(result.message)
+      await queryClient.invalidateQueries({ queryKey: ['student-enrolled-courses'] })
+      navigate({ to: '/student/my-courses' })
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Enroll failed'),
+  })
+
+  if (courseQuery.isLoading) {
+    return <p className="text-sm text-muted-foreground">Loading course detail...</p>
+  }
+
+  if (courseQuery.isError) {
+    return <p className="text-sm text-destructive">{courseQuery.error.message}</p>
+  }
+
+  const course = courseQuery.data?.data
+  if (!course) {
+    return <p className="text-sm text-muted-foreground">Course not found.</p>
+  }
+
+  const isEnrolled = enrolledQuery.data?.data.some((item) => item.id === course.id) ?? false
+
+  return (
+    <section className="space-y-6">
+      <Button variant="outline" asChild>
+        <Link to="/student/my-courses">
+          <ArrowLeft className="h-4 w-4" />
+          Back to my courses
+        </Link>
+      </Button>
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle>{course.name}</CardTitle>
+            <Badge variant={course.isPublished ? 'default' : 'outline'}>
+              {course.isPublished ? 'published' : 'draft'}
+            </Badge>
+          </div>
+          <CardDescription>{course.description}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <p>
+            <span className="font-medium">Teacher:</span> {course.teacher.username}
+          </p>
+          <p>
+            <span className="font-medium">Chapters:</span> {course.chapters.length}
+          </p>
+
+          <div className="flex flex-wrap gap-2">
+            <Button disabled={isEnrolled || enrollMutation.isPending} onClick={() => enrollMutation.mutate()}>
+              {isEnrolled ? 'Enrolled' : enrollMutation.isPending ? 'Enrolling...' : 'Enroll course'}
+            </Button>
+            {isEnrolled ? (
+              <Button variant="secondary" onClick={() => navigate({ to: '/student/assignments', search: { courseId: course.id } })}>
+                Go to My Assignments
+              </Button>
+            ) : null}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Course Chapters</CardTitle>
+          <CardDescription>Learning roadmap and assignment mapping by chapter.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {course.chapters.length === 0 ? <p className="text-sm text-muted-foreground">No chapters yet.</p> : null}
+          {course.chapters.map((chapter) => (
+            <div key={chapter.id} className="rounded-md border p-3 text-sm">
+              <div className="flex items-center justify-between">
+                <p className="font-medium">
+                  #{chapter.orderIndex} {chapter.title}
+                </p>
+                <Badge variant="outline">{chapter.assignmentId ? 'has assignment' : 'no assignment'}</Badge>
+              </div>
+              {chapter.assignmentId ? (
+                <p className="mt-1 text-xs text-muted-foreground">assignmentId: {chapter.assignmentId}</p>
+              ) : null}
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </section>
+  )
+}
