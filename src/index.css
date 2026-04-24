@@ -56,3 +56,33 @@
     @apply bg-background text-foreground antialiased;
   }
 }
+
+/* Monaco Editor Decorations */
+.monaco-line-highlight-a {
+  background-color: rgba(244, 63, 94, 0.2) !important;
+  /* Rose 500 alpha */
+}
+
+.monaco-line-highlight-b {
+  background-color: rgba(245, 158, 11, 0.2) !important;
+  /* Amber 500 alpha */
+}
+
+.monaco-inline-highlight {
+  background-color: rgba(254, 240, 138, 0.3);
+  /* Yellow 200 alpha */
+  border-bottom: 1px solid rgba(254, 240, 138, 0.8);
+  font-weight: bold;
+}
+
+.monaco-line-highlight-a-glyph {
+  background-color: #f43f5e;
+  width: 4px !important;
+  margin-left: 5px;
+}
+
+.monaco-line-highlight-b-glyph {
+  background-color: #f59e0b;
+  width: 4px !important;
+  margin-left: 5px;
+}

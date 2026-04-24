@@ -64,13 +64,24 @@ export interface EvidenceChain {
     evidence: {
       commonLines: string[]
       commonTokens: string[]
+      astNodesA?: string[]
+      astNodesB?: string[]
+      segments: Array<{
+        title: string
+        description: string
+        similarity: number
+        linesA: [number, number]
+        linesB: [number, number]
+      }>
     }
     pair: {
       submissionAId: string
       studentA: string
+      codeA: string
       submittedAtA: string
       submissionBId: string
       studentB: string
+      codeB: string
       submittedAtB: string
     }
   }>

@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { AlertTriangle, ChevronDown, Loader2, Scale, Search } from 'lucide-react'
 import { toast } from 'react-toastify'
+import { Editor } from '@monaco-editor/react'
+import type { editor } from 'monaco-editor'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -15,6 +17,7 @@ import {
   getReviewVerdictDetail,
   getSubmissionPlagiarismStats,
   updateReviewVerdict,
+  type EvidenceChain,
   type HighRiskSubmission,
   type VerdictStatus,
 } from '@/lib/review-verdict-api'
@@ -316,9 +319,8 @@ function ReviewVerdictPage() {
                       return (
                         <div
                           key={match.plagiarismId}
-                          className={`rounded-2xl border ${
-                            match.highRisk ? 'border-rose-200 bg-rose-50/30' : 'border-slate-200 bg-white'
-                          }`}
+                          className={`rounded-2xl border ${match.highRisk ? 'border-rose-200 bg-rose-50/30' : 'border-slate-200 bg-white'
+                            }`}
                         >
                           <button
                             type="button"
@@ -373,23 +375,7 @@ function ReviewVerdictPage() {
 
                   <div className="space-y-3">
                     {evidenceChain?.chain.map((item) => (
-                      <div key={item.plagiarismId} className="rounded-2xl border border-slate-200 p-4">
-                        <div className="mb-3 flex flex-wrap items-center gap-2">
-                          <Badge className={item.highRisk ? 'border-0 bg-rose-50 text-rose-600 hover:bg-rose-50' : 'border-0 bg-amber-50 text-amber-600 hover:bg-amber-50'}>
-                            {item.highRisk ? 'High risk' : 'Review'}
-                          </Badge>
-                          <Badge className="border-0 bg-slate-100 text-slate-600 hover:bg-slate-100">
-                            {Math.round(item.similarity * 100)}% similarity
-                          </Badge>
-                        </div>
-                        <div className="space-y-1 text-sm text-slate-600">
-                          <p>{item.pair.studentA} submitted at {new Date(item.pair.submittedAtA).toLocaleString()}</p>
-                          <p>{item.pair.studentB} submitted at {new Date(item.pair.submittedAtB).toLocaleString()}</p>
-                        </div>
-                        <div className="mt-4">
-                          <EvidenceBlock commonLines={item.evidence.commonLines} commonTokens={item.evidence.commonTokens} />
-                        </div>
-                      </div>
+                      <EvidenceChainItem key={item.plagiarismId} item={item} />
                     ))}
 
                     {!evidenceChain?.chain.length ? <p className="text-sm text-slate-500">No evidence chain available.</p> : null}
@@ -507,6 +493,253 @@ function queueStatusClass(status: HighRiskSubmission['status']) {
     return 'border-0 bg-emerald-50 text-emerald-600 hover:bg-emerald-50'
   }
   return 'border-0 bg-blue-50 text-blue-600 hover:bg-blue-50'
+}
+
+function EvidenceChainItem({ item }: { item: EvidenceChain['chain'][0] }) {
+  const [showCode, setShowCode] = useState(false)
+
+  return (
+    <div className="rounded-2xl border border-slate-200 p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge
+            className={
+              item.highRisk
+                ? 'border-0 bg-rose-50 text-rose-600 hover:bg-rose-50'
+                : 'border-0 bg-amber-50 text-amber-600 hover:bg-amber-50'
+            }
+          >
+            {item.highRisk ? 'High risk' : 'Review'}
+          </Badge>
+          <Badge className="border-0 bg-slate-100 text-slate-600 hover:bg-slate-100">
+            {Math.round(item.similarity * 100)}% similarity
+          </Badge>
+        </div>
+        <Button variant="ghost" size="sm" onClick={() => setShowCode(!showCode)} className="text-primary hover:text-primary/80">
+          {showCode ? 'Hide Comparison' : 'View Side-by-Side'}
+        </Button>
+      </div>
+
+      <div className="grid gap-2 border-b border-dashed border-slate-100 pb-4 text-sm text-slate-600">
+        <p>
+          <span className="font-medium text-slate-900">{item.pair.studentA}</span> submitted at{' '}
+          {new Date(item.pair.submittedAtA).toLocaleString()}
+        </p>
+        <p>
+          <span className="font-medium text-slate-900">{item.pair.studentB}</span> submitted at{' '}
+          {new Date(item.pair.submittedAtB).toLocaleString()}
+        </p>
+      </div>
+
+      {showCode ? (
+        <div className="mt-4 space-y-4">
+          <CodePairComparison
+            codeA={item.pair.codeA}
+            codeB={item.pair.codeB}
+            segments={item.evidence.segments}
+            commonLines={item.evidence.commonLines}
+            commonTokens={item.evidence.commonTokens}
+            studentA={item.pair.studentA}
+            studentB={item.pair.studentB}
+          />
+          <div className="rounded-xl bg-slate-50/50 p-4">
+            <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Evidence Details</h4>
+            <EvidenceBlock commonLines={item.evidence.commonLines} commonTokens={item.evidence.commonTokens} />
+          </div>
+        </div>
+      ) : (
+        <div className="mt-4">
+          <EvidenceBlock commonLines={item.evidence.commonLines} commonTokens={item.evidence.commonTokens} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CodePairComparison({
+  codeA,
+  codeB,
+  segments,
+  commonLines,
+  commonTokens,
+  studentA,
+  studentB,
+}: {
+  codeA: string
+  codeB: string
+  segments: EvidenceChain['chain'][0]['evidence']['segments']
+  commonLines: string[]
+  commonTokens: string[]
+  studentA: string
+  studentB: string
+}) {
+  const [editorA, setEditorA] = useState<editor.IStandaloneCodeEditor | null>(null)
+  const [editorB, setEditorB] = useState<editor.IStandaloneCodeEditor | null>(null)
+
+  const applyDecorations = (editor: editor.IStandaloneCodeEditor, codeType: 'A' | 'B') => {
+    const model = editor.getModel()
+    if (!model) return
+
+    const lineDecorations = segments.map((s) => ({
+      range: {
+        startLineNumber: codeType === 'A' ? s.linesA[0] : s.linesB[0],
+        startColumn: 1,
+        endLineNumber: codeType === 'A' ? s.linesA[1] : s.linesB[1],
+        endColumn: 1000,
+      },
+      options: {
+        isWholeLine: true,
+        className: codeType === 'A' ? 'monaco-line-highlight-a' : 'monaco-line-highlight-b',
+        glyphMarginClassName: codeType === 'A' ? 'monaco-line-highlight-a-glyph' : 'monaco-line-highlight-b-glyph',
+        marginClassName: codeType === 'A' ? 'monaco-line-highlight-a-glyph' : 'monaco-line-highlight-b-glyph',
+      },
+    }))
+
+    // Inline decorations for tokens
+    const inlineDecorations: editor.IModelDeltaDecoration[] = []
+
+    commonTokens.forEach((token) => {
+      const matches = model.findMatches(token, false, false, true, null, true)
+      matches.forEach((match) => {
+        inlineDecorations.push({
+          range: match.range,
+          options: {
+            inlineClassName: 'monaco-inline-highlight',
+            hoverMessage: { value: `Common token: ${token}` },
+          },
+        })
+      })
+    })
+
+    // Inline decorations for common lines (full matches)
+    commonLines.forEach((lineText) => {
+      if (!lineText.trim()) return
+      const matches = model.findMatches(lineText, false, false, true, null, true)
+      matches.forEach((match) => {
+        inlineDecorations.push({
+          range: match.range,
+          options: {
+            inlineClassName: 'monaco-inline-highlight',
+            hoverMessage: { value: 'Common line match' },
+          },
+        })
+      })
+    })
+
+    editor.deltaDecorations([], [...lineDecorations, ...inlineDecorations])
+  }
+
+  useEffect(() => {
+    if (editorA) applyDecorations(editorA, 'A')
+  }, [editorA, segments, commonLines, commonTokens])
+
+  useEffect(() => {
+    if (editorB) applyDecorations(editorB, 'B')
+  }, [editorB, segments, commonLines, commonTokens])
+
+  // Sync scroll
+  useEffect(() => {
+    if (!editorA || !editorB) return
+
+    const disposableA = editorA.onDidScrollChange((e) => {
+      if (e.scrollTopChanged) {
+        editorB.setScrollTop(e.scrollTop)
+      }
+    })
+
+    const disposableB = editorB.onDidScrollChange((e) => {
+      if (e.scrollTopChanged) {
+        editorA.setScrollTop(e.scrollTop)
+      }
+    })
+
+    return () => {
+      disposableA.dispose()
+      disposableB.dispose()
+    }
+  }, [editorA, editorB])
+
+  const editorOptions: editor.IStandaloneEditorConstructionOptions = {
+    readOnly: true,
+    minimap: { enabled: false },
+    fontSize: 12,
+    lineHeight: 20,
+    scrollBeyondLastLine: false,
+    automaticLayout: true,
+    glyphMargin: true,
+    folding: true,
+    lineNumbersMinChars: 3,
+    theme: 'vs-dark',
+    scrollbar: {
+      vertical: 'hidden',
+      horizontal: 'auto',
+    },
+  }
+
+  return (
+    <div className="flex flex-col gap-4 overflow-hidden rounded-2xl border border-slate-800 bg-[#1e1e1e]">
+      <div className="grid h-[500px] overflow-hidden lg:grid-cols-2">
+        {/* Version A */}
+        <div className="flex flex-col border-slate-800 lg:border-r">
+          <div className="border-b border-slate-800 bg-[#252526] px-4 py-2">
+            <p className="text-xs font-semibold text-slate-400">Version A: {studentA}</p>
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <Editor
+              height="100%"
+              language="javascript"
+              value={codeA}
+              theme="vs-dark"
+              options={editorOptions}
+              onMount={(editor) => setEditorA(editor)}
+            />
+          </div>
+        </div>
+
+        {/* Version B */}
+        <div className="flex flex-col">
+          <div className="border-b border-slate-800 bg-[#252526] px-4 py-2">
+            <p className="text-xs font-semibold text-slate-400">Version B: {studentB}</p>
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <Editor
+              height="100%"
+              language="javascript"
+              value={codeB}
+              theme="vs-dark"
+              options={editorOptions}
+              onMount={(editor) => setEditorB(editor)}
+            />
+          </div>
+        </div>
+      </div>
+
+      {segments.length > 0 && (
+        <div className="border-t border-slate-800 bg-[#252526] px-5 py-3">
+          <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Matching Segments</p>
+          <div className="mt-2 space-y-2">
+            {segments.map((seg, i) => (
+              <div key={i} className="flex items-center gap-3 text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    editorA?.revealLineInCenter(seg.linesA[0])
+                    editorB?.revealLineInCenter(seg.linesB[0])
+                  }}
+                  className="rounded bg-rose-900/40 px-1.5 py-0.5 font-medium text-rose-300 transition hover:bg-rose-900/60"
+                >
+                  Similarity: {Math.round(seg.similarity * 100)}%
+                </button>
+                <span className="text-slate-400 italic">
+                  "{seg.title}" ({seg.description})
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 function EvidenceBlock({ commonLines, commonTokens }: { commonLines: string[]; commonTokens: string[] }) {
