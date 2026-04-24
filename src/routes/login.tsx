@@ -1,13 +1,23 @@
 import { useState, type FormEvent } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute } from '@tanstack/react-router'
 import { useMutation } from '@tanstack/react-query'
-import { AlertCircle, GraduationCap, Loader2 } from 'lucide-react'
+import { AlertCircle, CheckCircle2, GraduationCap, Loader2 } from 'lucide-react'
 import { toast } from 'react-toastify'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { forgotPasswordApi } from '@/lib/auth-api'
 import { useAuth } from '@/modules/auth/auth-context'
 
 export const Route = createFileRoute('/login')({
@@ -24,6 +34,10 @@ function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
 
+  const [forgotUsername, setForgotUsername] = useState('')
+  const [resetToken, setResetToken] = useState<string | null>(null)
+  const [isForgotDialogOpen, setIsForgotDialogOpen] = useState(false)
+
   const loginMutation = useMutation({
     mutationFn: async () => login(username, password),
     onSuccess: (result) => {
@@ -39,6 +53,17 @@ function LoginPage() {
       const message = mutationError instanceof Error ? mutationError.message : 'Login failed'
       setError(message)
       toast.error(message)
+    },
+  })
+
+  const forgotMutation = useMutation({
+    mutationFn: async () => forgotPasswordApi({ username: forgotUsername }),
+    onSuccess: (result) => {
+      toast.success(result.message)
+      setResetToken(result.data?.resetToken || null)
+    },
+    onError: (mutationError) => {
+      toast.error(mutationError instanceof Error ? mutationError.message : 'Failed to send reset request')
     },
   })
 
@@ -111,13 +136,70 @@ function LoginPage() {
                 </div>
 
                 <div className="flex justify-end text-sm">
-                  <button
-                    type="button"
-                    onClick={() => toast.info('Please contact IT Support to reset your password.')}
-                    className="font-medium text-primary transition hover:text-primary/80"
-                  >
-                    Forgot Password?
-                  </button>
+                  <Dialog open={isForgotDialogOpen} onOpenChange={setIsForgotDialogOpen}>
+                    <DialogTrigger asChild>
+                      <button type="button" className="font-medium text-primary transition hover:text-primary/80">
+                        Forgot Password?
+                      </button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Forgot Password</DialogTitle>
+                        <DialogDescription>
+                          Enter your account username to receive a password reset token.
+                        </DialogDescription>
+                      </DialogHeader>
+
+                      {!resetToken ? (
+                        <div className="space-y-4 py-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="forgot-username">Username</Label>
+                            <Input
+                              id="forgot-username"
+                              value={forgotUsername}
+                              onChange={(e) => setForgotUsername(e.target.value)}
+                              placeholder="Enter your account"
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-4 py-4">
+                          <div className="flex flex-col items-center gap-3 text-center">
+                            <CheckCircle2 className="h-12 w-12 text-emerald-500" />
+                            <p className="text-sm font-medium text-slate-900">Reset instructions processed!</p>
+                            <p className="text-xs text-slate-500">
+                              Please proceed to the reset page to set your new password.
+                            </p>
+                          </div>
+                          <Button className="w-full" asChild onClick={() => setIsForgotDialogOpen(false)}>
+                            <Link to="/reset-password" search={{ token: resetToken }}>
+                              Go to Reset Page
+                            </Link>
+                          </Button>
+                        </div>
+                      )}
+
+                      {!resetToken && (
+                        <DialogFooter>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => setIsForgotDialogOpen(false)}
+                            disabled={forgotMutation.isPending}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            type="button"
+                            onClick={() => forgotMutation.mutate()}
+                            disabled={forgotMutation.isPending || !forgotUsername.trim()}
+                          >
+                            {forgotMutation.isPending ? 'Sending...' : 'Send Request'}
+                          </Button>
+                        </DialogFooter>
+                      )}
+                    </DialogContent>
+                  </Dialog>
                 </div>
 
                 <Button

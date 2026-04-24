@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
@@ -18,6 +19,7 @@ import { Route as AuthenticatedSubmissionsRouteImport } from './routes/_authenti
 import { Route as AuthenticatedStudentCoursesRouteImport } from './routes/_authenticated.student-courses'
 import { Route as AuthenticatedStudentRouteImport } from './routes/_authenticated.student'
 import { Route as AuthenticatedReviewVerdictRouteImport } from './routes/_authenticated.review-verdict'
+import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedAssignmentsRouteImport } from './routes/_authenticated.assignments'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated.admin'
 import { Route as AuthenticatedStudentCoursesIndexRouteImport } from './routes/_authenticated.student-courses.index'
@@ -38,6 +40,11 @@ import { Route as AuthenticatedStudentAssignmentsAssignmentIdRouteImport } from 
 import { Route as AuthenticatedStudentAllCoursesCourseIdRouteImport } from './routes/_authenticated/student/all-courses.$courseId'
 import { Route as AuthenticatedStudentAllCourseCourseIdRouteImport } from './routes/_authenticated/student/all-course.$courseId'
 
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -86,6 +93,11 @@ const AuthenticatedReviewVerdictRoute =
     path: '/review-verdict',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedAssignmentsRoute =
   AuthenticatedAssignmentsRouteImport.update({
     id: '/assignments',
@@ -203,8 +215,10 @@ const AuthenticatedStudentAllCourseCourseIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/assignments': typeof AuthenticatedAssignmentsRouteWithChildren
+  '/profile': typeof AuthenticatedProfileRoute
   '/review-verdict': typeof AuthenticatedReviewVerdictRoute
   '/student': typeof AuthenticatedStudentRouteWithChildren
   '/student-courses': typeof AuthenticatedStudentCoursesRouteWithChildren
@@ -232,7 +246,9 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/admin': typeof AuthenticatedAdminRouteWithChildren
+  '/profile': typeof AuthenticatedProfileRoute
   '/review-verdict': typeof AuthenticatedReviewVerdictRoute
   '/student': typeof AuthenticatedStudentRouteWithChildren
   '/submissions': typeof AuthenticatedSubmissionsRoute
@@ -261,8 +277,10 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/assignments': typeof AuthenticatedAssignmentsRouteWithChildren
+  '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/review-verdict': typeof AuthenticatedReviewVerdictRoute
   '/_authenticated/student': typeof AuthenticatedStudentRouteWithChildren
   '/_authenticated/student-courses': typeof AuthenticatedStudentCoursesRouteWithChildren
@@ -292,8 +310,10 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/reset-password'
     | '/admin'
     | '/assignments'
+    | '/profile'
     | '/review-verdict'
     | '/student'
     | '/student-courses'
@@ -321,7 +341,9 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/reset-password'
     | '/admin'
+    | '/profile'
     | '/review-verdict'
     | '/student'
     | '/submissions'
@@ -349,8 +371,10 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/login'
+    | '/reset-password'
     | '/_authenticated/admin'
     | '/_authenticated/assignments'
+    | '/_authenticated/profile'
     | '/_authenticated/review-verdict'
     | '/_authenticated/student'
     | '/_authenticated/student-courses'
@@ -380,10 +404,18 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -445,6 +477,13 @@ declare module '@tanstack/react-router' {
       path: '/review-verdict'
       fullPath: '/review-verdict'
       preLoaderRoute: typeof AuthenticatedReviewVerdictRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/profile': {
+      id: '/_authenticated/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof AuthenticatedProfileRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/assignments': {
@@ -683,6 +722,7 @@ const AuthenticatedTeacherRouteWithChildren =
 interface AuthenticatedRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
   AuthenticatedAssignmentsRoute: typeof AuthenticatedAssignmentsRouteWithChildren
+  AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedReviewVerdictRoute: typeof AuthenticatedReviewVerdictRoute
   AuthenticatedStudentRoute: typeof AuthenticatedStudentRouteWithChildren
   AuthenticatedStudentCoursesRoute: typeof AuthenticatedStudentCoursesRouteWithChildren
@@ -694,6 +734,7 @@ interface AuthenticatedRouteChildren {
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
   AuthenticatedAssignmentsRoute: AuthenticatedAssignmentsRouteWithChildren,
+  AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedReviewVerdictRoute: AuthenticatedReviewVerdictRoute,
   AuthenticatedStudentRoute: AuthenticatedStudentRouteWithChildren,
   AuthenticatedStudentCoursesRoute:
@@ -711,6 +752,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LoginRoute: LoginRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

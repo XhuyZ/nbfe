@@ -12,16 +12,17 @@ const menuByRole: Record<
   UserRole,
   Array<{
     to:
-      | '/student'
-      | '/teacher'
-      | '/admin'
-      | '/student/all-course'
-      | '/student/my-courses'
-      | '/student/assignments'
-      | '/student/submissions'
-      | '/teacher/courses'
-      | '/teacher/review-verdict'
-      | '/admin/review-verdict'
+    | '/student'
+    | '/teacher'
+    | '/admin'
+    | '/student/all-course'
+    | '/student/my-courses'
+    | '/student/assignments'
+    | '/student/submissions'
+    | '/teacher/courses'
+    | '/teacher/review-verdict'
+    | '/admin/review-verdict'
+    | '/profile'
     label: string
     icon: ReactNode
   }>
@@ -32,15 +33,18 @@ const menuByRole: Record<
     { to: '/student/my-courses', label: 'My Courses', icon: <GraduationCap className="h-4 w-4" /> },
     { to: '/student/assignments', label: 'My Assignments', icon: <FileText className="h-4 w-4" /> },
     { to: '/student/submissions', label: 'Submissions', icon: <FileCode2 className="h-4 w-4" /> },
+    { to: '/profile', label: 'My Profile', icon: <User className="h-4 w-4" /> },
   ],
   teacher: [
     { to: '/teacher', label: 'Analytics', icon: <BarChart3 className="h-4 w-4" /> },
     { to: '/teacher/courses', label: 'Course Management', icon: <BookOpenCheck className="h-4 w-4" /> },
     { to: '/teacher/review-verdict', label: 'Review & Verdict', icon: <FileSearch className="h-4 w-4" /> },
+    { to: '/profile', label: 'My Profile', icon: <User className="h-4 w-4" /> },
   ],
   admin: [
     { to: '/admin', label: 'Admin Dashboard', icon: <Shield className="h-4 w-4" /> },
     { to: '/admin/review-verdict', label: 'Review & Verdict', icon: <FileSearch className="h-4 w-4" /> },
+    { to: '/profile', label: 'My Profile', icon: <User className="h-4 w-4" /> },
   ],
 }
 
@@ -62,7 +66,7 @@ export function AppSidebar() {
   return (
     <aside className="w-72 border-r bg-background p-4">
       <div className="space-y-1">
-        <p className="text-sm font-medium">Code Grading System</p>
+        <p className="text-sm font-semibold text-slate-900">Coursework Review System</p>
         <p className="text-xs text-muted-foreground">Welcome, {user.username}</p>
       </div>
 
