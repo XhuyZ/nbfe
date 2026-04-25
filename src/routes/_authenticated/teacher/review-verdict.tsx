@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { AlertTriangle, ChevronDown, Loader2, Scale, Search } from 'lucide-react'
+import { AlertTriangle, ChevronDown, Eye, Gavel, History, LayoutDashboard, Loader2, Search } from 'lucide-react'
 import { toast } from 'react-toastify'
 import { Editor } from '@monaco-editor/react'
 import type { editor } from 'monaco-editor'
@@ -33,6 +33,8 @@ export const Route = createFileRoute('/_authenticated/teacher/review-verdict')({
   component: ReviewVerdictPage,
 })
 
+type DetailTab = 'overview' | 'timeline' | 'verdict'
+
 function ReviewVerdictPage() {
   const queryClient = useQueryClient()
   const { accessToken, user } = useAuth()
@@ -41,6 +43,7 @@ function ReviewVerdictPage() {
   const [openDetailDialog, setOpenDetailDialog] = useState(false)
   const [verdict, setVerdict] = useState<VerdictStatus>('need_more_review')
   const [note, setNote] = useState('')
+  const [activeTab, setActiveTab] = useState<DetailTab>('overview')
   const [queueSearch, setQueueSearch] = useState('')
   const [expandedEvidenceId, setExpandedEvidenceId] = useState<string | null>(null)
 
@@ -132,6 +135,12 @@ function ReviewVerdictPage() {
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to update verdict'),
   })
 
+  const onOpenDetail = (submissionId: string, tab: DetailTab = 'overview') => {
+    setSelectedSubmissionId(submissionId)
+    setActiveTab(tab)
+    setOpenDetailDialog(true)
+  }
+
   const selectedCourseName = coursesQuery.data?.data.find((course) => course.id === selectedCourseId)?.name ?? 'Select course'
   const detail = verdictDetailQuery.data?.data
   const plagiarismStats = plagiarismStatsQuery.data?.data
@@ -212,14 +221,9 @@ function ReviewVerdictPage() {
             ) : null}
 
             {queueItems.map((item) => (
-              <button
+              <div
                 key={item.submissionId}
-                type="button"
-                onClick={() => {
-                  setSelectedSubmissionId(item.submissionId)
-                  setOpenDetailDialog(true)
-                }}
-                className="w-full rounded-2xl border border-slate-200 bg-white p-5 text-left transition hover:border-slate-300 hover:bg-slate-50/80"
+                className="group relative rounded-2xl border border-slate-200 bg-white p-5 transition-all hover:border-slate-300 hover:shadow-md"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -240,7 +244,36 @@ function ReviewVerdictPage() {
                 </div>
 
                 {item.reviewNote ? <p className="mt-4 line-clamp-2 text-sm text-slate-600">{item.reviewNote}</p> : null}
-              </button>
+
+                <div className="mt-5 grid grid-cols-3 gap-2 border-t border-slate-100 pt-5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 rounded-xl border-slate-200 bg-slate-50/50 text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    onClick={() => onOpenDetail(item.submissionId, 'overview')}
+                  >
+                    <Eye className="mr-1.5 h-3.5 w-3.5" />
+                    Overview
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 rounded-xl border-slate-200 bg-slate-50/50 text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    onClick={() => onOpenDetail(item.submissionId, 'timeline')}
+                  >
+                    <History className="mr-1.5 h-3.5 w-3.5" />
+                    Timeline
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-9 rounded-xl bg-slate-900 text-xs font-medium text-white hover:bg-slate-800"
+                    onClick={() => onOpenDetail(item.submissionId, 'verdict')}
+                  >
+                    <Gavel className="mr-1.5 h-3.5 w-3.5" />
+                    Verdict
+                  </Button>
+                </div>
+              </div>
             ))}
           </div>
         </CardContent>
@@ -276,189 +309,231 @@ function ReviewVerdictPage() {
               </div>
             </div>
 
-            <div className="grid gap-6 px-8 py-7 lg:grid-cols-[minmax(0,1.35fr)_360px]">
-              <div className="space-y-6">
-                <div className="grid gap-4 md:grid-cols-3">
-                  <SummaryBlock
-                    label="Highest Similarity"
-                    value={plagiarismStats ? `${Math.round(plagiarismStats.highestSimilarity * 100)}%` : '...'}
-                    tone="danger"
-                  />
-                  <SummaryBlock label="High-risk Matches" value={plagiarismStats ? String(plagiarismStats.highRiskCount) : '...'} />
-                  <SummaryBlock label="Reviewer" value={detail?.reviewer ?? 'Pending'} />
-                </div>
+            <div className="bg-slate-50/50 px-8 py-3">
+              <div className="flex gap-1 overflow-x-auto pb-1">
+                <TabButton
+                  active={activeTab === 'overview'}
+                  onClick={() => setActiveTab('overview')}
+                  icon={<LayoutDashboard className="h-4 w-4" />}
+                  label="Evidence Overview"
+                />
+                <TabButton
+                  active={activeTab === 'timeline'}
+                  onClick={() => setActiveTab('timeline')}
+                  icon={<History className="h-4 w-4" />}
+                  label="Evidence Timeline"
+                />
+                <TabButton
+                  active={activeTab === 'verdict'}
+                  onClick={() => setActiveTab('verdict')}
+                  icon={<Gavel className="h-4 w-4" />}
+                  label="Final Verdict"
+                />
+              </div>
+            </div>
 
-                <section className="space-y-4">
-                  <div>
-                    <h3 className="text-xl font-semibold text-slate-900">Evidence Overview</h3>
-                    <p className="mt-1 text-sm text-slate-500">Key match results are highlighted below so reviewers can focus on the strongest signals first.</p>
+            <div className="min-h-[500px] bg-white px-8 py-8">
+              {activeTab === 'overview' && (
+                <div className="animate-in fade-in slide-in-from-bottom-2 space-y-8 duration-300">
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <SummaryBlock
+                      label="Highest Similarity"
+                      value={plagiarismStats ? `${Math.round(plagiarismStats.highestSimilarity * 100)}%` : '...'}
+                      tone="danger"
+                    />
+                    <SummaryBlock label="High-risk Matches" value={plagiarismStats ? String(plagiarismStats.highRiskCount) : '...'} />
+                    <SummaryBlock label="Reviewer" value={detail?.reviewer ?? 'Pending'} />
                   </div>
 
-                  {verdictDetailQuery.isLoading ? (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Loading review summary...
+                  <section className="space-y-6">
+                    <div>
+                      <h3 className="text-xl font-semibold text-slate-900">Key Evidence Findings</h3>
+                      <p className="mt-1 text-sm text-slate-500">
+                        Match results are highlighted below based on their risk level and similarity.
+                      </p>
                     </div>
-                  ) : null}
-                  {verdictDetailQuery.isError ? <p className="text-sm text-destructive">{verdictDetailQuery.error.message}</p> : null}
 
-                  {detail?.note ? (
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
-                      <p className="text-sm font-medium text-slate-900">Existing Review Note</p>
-                      <p className="mt-2 text-sm leading-7 text-slate-600">{detail.note}</p>
-                    </div>
-                  ) : null}
+                    {verdictDetailQuery.isLoading ? (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Loading review summary...
+                      </div>
+                    ) : null}
 
-                  <div className="space-y-3">
-                    {plagiarismStatsQuery.isLoading ? <p className="text-sm text-muted-foreground">Loading plagiarism stats...</p> : null}
-                    {plagiarismStatsQuery.isError ? <p className="text-sm text-destructive">{plagiarismStatsQuery.error.message}</p> : null}
+                    {detail?.note ? (
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-5">
+                        <p className="text-sm font-semibold text-slate-900">Current Review Note</p>
+                        <p className="mt-2 text-sm leading-7 text-slate-600">{detail.note}</p>
+                      </div>
+                    ) : null}
 
-                    {plagiarismStats?.matches.map((match, index) => {
-                      const isOpen = expandedEvidenceId === match.plagiarismId
-
-                      return (
-                        <div
-                          key={match.plagiarismId}
-                          className={`rounded-2xl border ${match.highRisk ? 'border-rose-200 bg-rose-50/30' : 'border-slate-200 bg-white'
-                            }`}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => setExpandedEvidenceId(isOpen ? null : match.plagiarismId)}
-                            className="flex w-full items-center justify-between gap-3 p-4 text-left"
+                    <div className="space-y-4">
+                      {plagiarismStatsQuery.isLoading ? <p className="text-sm text-muted-foreground">Loading plagiarism stats...</p> : null}
+                      {plagiarismStats?.matches.map((match, index) => {
+                        const isOpen = expandedEvidenceId === match.plagiarismId
+                        return (
+                          <div
+                            key={match.plagiarismId}
+                            className={`rounded-2xl border transition-all ${match.highRisk ? 'border-rose-200 bg-rose-50/30' : 'border-slate-200 bg-white'
+                              }`}
                           >
-                            <div>
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="font-medium text-slate-900">Version Match #{index + 1}</p>
-                                {match.highRisk ? (
-                                  <Badge className="border-0 bg-rose-100 text-rose-600 hover:bg-rose-100">Primary Flag</Badge>
-                                ) : (
-                                  <Badge className="border-0 bg-amber-100 text-amber-600 hover:bg-amber-100">Secondary Flag</Badge>
-                                )}
+                            <button
+                              type="button"
+                              onClick={() => setExpandedEvidenceId(isOpen ? null : match.plagiarismId)}
+                              className="flex w-full items-center justify-between gap-4 p-5 text-left"
+                            >
+                              <div className="flex items-center gap-4">
+                                <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${match.highRisk ? 'bg-rose-100 text-rose-600' : 'bg-slate-100 text-slate-500'}`}>
+                                  <span className="text-sm font-bold">#{index + 1}</span>
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <p className="font-semibold text-slate-900 truncate">Version Pair Comparison</p>
+                                    {match.highRisk && <Badge className="border-0 bg-rose-500 text-white hover:bg-rose-500">Critical</Badge>}
+                                  </div>
+                                  <p className="mt-1 text-xs text-slate-400">ID: {match.submitVersionAId} vs {match.submitVersionBId}</p>
+                                </div>
                               </div>
-                              <p className="mt-1 text-xs text-slate-400">
-                                Version pair: `{match.submitVersionAId}` vs `{match.submitVersionBId}`
-                              </p>
-                            </div>
 
-                            <div className="flex flex-wrap items-center gap-2">
-                              <Badge className={match.highRisk ? 'border-0 bg-rose-50 text-rose-600 hover:bg-rose-50' : 'border-0 bg-amber-50 text-amber-600 hover:bg-amber-50'}>
-                                {match.highRisk ? 'High risk' : 'Review'}
-                              </Badge>
-                              <Badge className="border-0 bg-slate-100 text-slate-600 hover:bg-slate-100">
-                                {Math.round(match.similarity * 100)}%
-                              </Badge>
-                            </div>
-                          </button>
+                              <div className="flex items-center gap-3">
+                                <Badge className="border-0 bg-slate-100/80 text-slate-700 px-3 py-1 text-xs">{Math.round(match.similarity * 100)}% Similarity</Badge>
+                                <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                              </div>
+                            </button>
 
-                          {isOpen ? (
-                            <div className="border-t border-slate-200 px-4 py-4">
-                              <EvidenceBlock commonLines={match.evidence.commonLines} commonTokens={match.evidence.commonTokens} />
-                            </div>
-                          ) : null}
-                        </div>
-                      )
-                    })}
+                            {isOpen && (
+                              <div className="border-t border-slate-100 p-5 space-y-4">
+                                <EvidenceBlock commonLines={match.evidence.commonLines} commonTokens={match.evidence.commonTokens} />
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
 
-                    {!plagiarismStats?.matches.length ? <p className="text-sm text-slate-500">No evidence matches available.</p> : null}
-                  </div>
-                </section>
+                      {!plagiarismStats?.matches.length && !plagiarismStatsQuery.isLoading ? (
+                        <p className="text-sm text-slate-500 text-center py-8">No evidence matches available for this submission.</p>
+                      ) : null}
+                    </div>
+                  </section>
+                </div>
+              )}
 
-                <section className="space-y-4">
+              {activeTab === 'timeline' && (
+                <div className="animate-in fade-in slide-in-from-bottom-2 space-y-6 duration-300">
                   <div>
                     <h3 className="text-xl font-semibold text-slate-900">Evidence Timeline</h3>
-                    <p className="mt-1 text-sm text-slate-500">Submission order and paired evidence are shown in a simpler timeline style.</p>
+                    <p className="mt-1 text-sm text-slate-500">Explore the submission sequence and detailed side-by-side code blocks.</p>
                   </div>
 
-                  {evidenceChainQuery.isLoading ? <p className="text-sm text-muted-foreground">Loading evidence chain...</p> : null}
-                  {evidenceChainQuery.isError ? <p className="text-sm text-destructive">{evidenceChainQuery.error.message}</p> : null}
+                  {evidenceChainQuery.isLoading && <p className="text-sm text-muted-foreground">Loading evidence chain...</p>}
 
-                  <div className="space-y-3">
+                  <div className="space-y-5">
                     {evidenceChain?.chain.map((item) => (
                       <EvidenceChainItem key={item.plagiarismId} item={item} />
                     ))}
 
-                    {!evidenceChain?.chain.length ? <p className="text-sm text-slate-500">No evidence chain available.</p> : null}
-                  </div>
-                </section>
-              </div>
-
-              <div className="space-y-4 lg:sticky lg:top-0">
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4 flex items-center gap-2">
-                    <Scale className="h-5 w-5 text-slate-500" />
-                    <div>
-                      <h3 className="text-xl font-semibold text-slate-900">Verdict Panel</h3>
-                      <p className="text-sm text-slate-500">Use the highlighted flags and evidence to make a final decision.</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <SummaryBlock
-                      label="Similarity"
-                      value={plagiarismStats ? `${Math.round(plagiarismStats.highestSimilarity * 100)}%` : '...'}
-                      tone="danger"
-                    />
-                    <SummaryBlock label="Current Verdict" value={detail?.verdict ?? 'need_more_review'} />
-                    <SummaryBlock
-                      label="Reviewed At"
-                      value={detail?.reviewedAt ? new Date(detail.reviewedAt).toLocaleString() : 'Not reviewed'}
-                    />
-
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
-                      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Visual Flags</p>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <Badge className="border-0 bg-rose-50 text-rose-600 hover:bg-rose-50">High similarity</Badge>
-                        {(plagiarismStats?.highRiskCount ?? 0) > 0 ? (
-                          <Badge className="border-0 bg-amber-50 text-amber-600 hover:bg-amber-50">
-                            {plagiarismStats?.highRiskCount} high-risk matches
-                          </Badge>
-                        ) : null}
-                        <Badge className={queueStatusClass(selectedSubmission.status)}>{queueStatusLabel(selectedSubmission.status)}</Badge>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-slate-700">Verdict</label>
-                      <select
-                        className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-700 outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-500/15"
-                        value={verdict}
-                        onChange={(event) => setVerdict(event.target.value as VerdictStatus)}
-                      >
-                        <option value="need_more_review">need_more_review</option>
-                        <option value="confirmed_copy">confirmed_copy</option>
-                        <option value="clean">clean</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-slate-700">Review Note</label>
-                      <textarea
-                        className="min-h-48 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-500/15"
-                        value={note}
-                        onChange={(event) => setNote(event.target.value)}
-                        placeholder="Summarize the evidence and final decision..."
-                      />
-                    </div>
-
-                    <Button className="h-11 w-full rounded-xl" disabled={!selectedSubmissionId || updateVerdictMutation.isPending} onClick={() => updateVerdictMutation.mutate()}>
-                      {updateVerdictMutation.isPending ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Saving verdict...
-                        </>
-                      ) : (
-                        'Save verdict'
-                      )}
-                    </Button>
+                    {!evidenceChain?.chain.length && !evidenceChainQuery.isLoading ? (
+                      <p className="text-sm text-slate-500 text-center py-8">No evidence chain available.</p>
+                    ) : null}
                   </div>
                 </div>
-              </div>
+              )}
+
+              {activeTab === 'verdict' && (
+                <div className="animate-in fade-in slide-in-from-bottom-2 mx-auto max-w-2xl duration-300">
+                  <Card className="rounded-3xl border-slate-200 shadow-lg">
+                    <CardContent className="p-8">
+                      <div className="mb-8 flex items-center gap-3">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-900">
+                          <Gavel className="h-6 w-6" />
+                        </div>
+                        <div>
+                          <h3 className="text-2xl font-bold text-slate-900">Final Decision</h3>
+                          <p className="text-sm text-slate-500">Set the verdict and provide feedback for the student.</p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-6 text-sm">
+                        <div className="grid grid-cols-2 gap-4">
+                          <SummaryBlock
+                            label="Max Similarity"
+                            value={plagiarismStats ? `${Math.round(plagiarismStats.highestSimilarity * 100)}%` : '...'}
+                            tone="danger"
+                          />
+                          <SummaryBlock label="Current Verdict" value={detail?.verdict ?? 'Under Review'} />
+                        </div>
+
+                        <div className="space-y-3">
+                          <label className="text-sm font-semibold text-slate-700">Set Verdict Status</label>
+                          <select
+                            className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-500/10"
+                            value={verdict}
+                            onChange={(event) => setVerdict(event.target.value as VerdictStatus)}
+                          >
+                            <option value="need_more_review">Need More Review</option>
+                            <option value="confirmed_copy">Confirmed Copy</option>
+                            <option value="clean">Clean / No Issue</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-3">
+                          <label className="text-sm font-semibold text-slate-700">Review Note & Detailed Feedback</label>
+                          <textarea
+                            className="min-h-56 w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm leading-relaxed text-slate-700 outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-500/10"
+                            value={note}
+                            onChange={(event) => setNote(event.target.value)}
+                            placeholder="Explain the reason for this verdict. This feedback is critical for the student."
+                          />
+                        </div>
+
+                        <Button
+                          className="h-14 w-full rounded-2xl bg-slate-900 text-base font-bold text-white transition-all hover:bg-slate-800 hover:shadow-lg active:scale-[0.98]"
+                          disabled={!selectedSubmissionId || updateVerdictMutation.isPending}
+                          onClick={() => updateVerdictMutation.mutate()}
+                        >
+                          {updateVerdictMutation.isPending ? (
+                            <div className="flex items-center gap-2">
+                              <Loader2 className="h-5 w-5 animate-spin" />
+                              <span>Saving Decision...</span>
+                            </div>
+                          ) : (
+                            'Submit Final Verdict'
+                          )}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
             </div>
           </DialogContent>
         ) : null}
       </Dialog>
     </section>
+  )
+}
+
+function TabButton({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
+  active: boolean
+  onClick: () => void
+  icon: React.ReactNode
+  label: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium transition-all ${active ? 'border-blue-600 bg-white text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'
+        }`}
+    >
+      {icon}
+      {label}
+    </button>
   )
 }
 
