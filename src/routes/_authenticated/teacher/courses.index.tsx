@@ -381,44 +381,42 @@ function TeacherCoursesPage() {
 
             return (
               <Card key={course.id} className="h-full rounded-2xl border-slate-200 shadow-sm transition-shadow hover:shadow-md">
-                <CardContent className="flex h-full p-5">
-                  <div className="flex h-full w-full items-start gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-500">
+                <CardContent className="flex h-full flex-col p-5">
+                  <div className="mb-4 flex items-start gap-4">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-500">
                       <Upload className="h-5 w-5 rotate-180" />
                     </div>
-
-                    <div className="flex min-w-0 flex-1 flex-col">
+                    <div className="flex-1">
                       <div className="flex items-start justify-between gap-3">
-                        <div className="min-h-[92px] flex-1">
-                          <p className="line-clamp-2 text-xl font-semibold leading-tight text-slate-900">{course.name}</p>
-                          <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-500">{course.description}</p>
-                        </div>
-
+                        <p className="line-clamp-2 text-xl font-semibold leading-tight text-slate-900">{course.name}</p>
                         <Badge
                           className={
                             course.isPublished
-                              ? 'border-0 bg-emerald-50 text-emerald-600 hover:bg-emerald-50'
-                              : 'border-0 bg-slate-100 text-slate-500 hover:bg-slate-100'
+                              ? 'shrink-0 border-0 bg-emerald-50 text-emerald-600 hover:bg-emerald-50'
+                              : 'shrink-0 border-0 bg-slate-100 text-slate-500 hover:bg-slate-100'
                           }
                         >
                           {course.isPublished ? 'Published' : 'Draft'}
                         </Badge>
                       </div>
-
-                      <div className="mt-5 min-h-[24px] flex flex-wrap gap-4 text-sm text-slate-500">
-                        <span>{course.chapters.length} lessons</span>
-                        <span>•</span>
-                        <span>{assignmentCount} assignments</span>
-                      </div>
-
-                      <Button
-                        className="mt-auto h-11 w-full rounded-xl bg-slate-950 text-white hover:bg-slate-900"
-                        onClick={() => onOpenManage(course)}
-                      >
-                        Manage Course
-                      </Button>
+                      <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-500">{course.description}</p>
                     </div>
                   </div>
+
+                  <div className="flex-1">
+                    <div className="flex flex-wrap gap-4 text-sm text-slate-500">
+                      <span>{course.chapters.length} lessons</span>
+                      <span>•</span>
+                      <span>{assignmentCount} assignments</span>
+                    </div>
+                  </div>
+
+                  <Button
+                    className="mt-6 h-11 w-full rounded-xl bg-slate-950 text-white hover:bg-slate-900"
+                    onClick={() => onOpenManage(course)}
+                  >
+                    Manage Course
+                  </Button>
                 </CardContent>
               </Card>
             )
