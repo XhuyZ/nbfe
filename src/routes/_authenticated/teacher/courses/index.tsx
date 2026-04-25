@@ -153,7 +153,7 @@ function TeacherCoursesPage() {
                   </div>
 
                   <Link
-                    to="/_authenticated/teacher/courses/$courseId"
+                    to="/teacher/courses/$courseId"
                     params={{ courseId: course.id }}
                     className="mt-6 flex h-11 w-full items-center justify-center rounded-xl bg-slate-950 text-sm font-semibold text-white transition hover:bg-slate-900"
                   >
